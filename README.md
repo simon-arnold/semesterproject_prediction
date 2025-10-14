@@ -12,8 +12,27 @@ The environment configuration is stored in the file `environment.yml`.
 
    ```bash
    conda env create -f environment.yml
+   ```
 
 4. Activate the environment:
 
-  ```bash
-  conda activate sp_project
+   ```bash
+   conda activate sp_project
+   ```
+
+5. Download and Prepare Data
+
+   ```bash
+   # Create folder and download dataset
+   mkdir -p data && cd data
+   zenodo_get -r 3581895
+
+   # Install 7-Zip and extract
+   sudo apt install p7zip-full
+   7z x Data_vs01.7z
+
+   # Clean up
+   rm Data_vs01.7z
+   rm -rf rawData/
+   cd ..
+   ```
