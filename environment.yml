@@ -1,0 +1,13 @@
+name: sp_project
+channels:
+  - defaults
+dependencies:
+  - python=3.11
+  - pytorch
+  - pytorch-cuda
+  - torchaudio
+  - torchvision
+prefix: /home/simon/programs/miniconda3/envs/sp_project
+
+# Hinzugefügt durch: conda env export --from-history > environment.yml
+# Kann später einfach mit conda env create -f environment.yml aktiviert werden
