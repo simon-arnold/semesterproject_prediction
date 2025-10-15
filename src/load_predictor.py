@@ -2,6 +2,14 @@
 import torch
 import torch.nn as nn
 import torch.optim as optim
+from torch.utils.data import DataLoader
+
+from data_processing.EnergyDataset import EnergyDataset, load_energy_hdf_to_pandas
+
+
+from rich.traceback import install
+install(show_locals=True)
+
 
 # -------------------------------------------------------------
 # CNN-LSTM Predictor Definition
@@ -72,31 +80,57 @@ class CNN_LSTM_Forecaster(nn.Module):
 # Run Example
 # -------------------------------------------------------------
 if __name__ == "__main__":
-    # Parameters
-    batch_size = 8
-    seq_len = 192       # 2 days with 15-min intervals
-    n_features = 6      # Year, Month, Day, Timestep, Weekday, Load
-    output_dim = 16     # 4x4 flattened
+    
+    
+    # --- 1. Load and preprocess data ---
+    file_path = "data/data/dfA_300s.hdf"
+    df = load_energy_hdf_to_pandas(file_path, plot_data=False)
 
-    # Dummy input data (random)
-    X = torch.randn(batch_size, seq_len, n_features)
-    y_true = torch.randn(batch_size, output_dim)
+    # --- 2. Chronological Train / Val / Test split ---
+    n = len(df)
+    train_end = int(n * 0.7)
+    val_end   = int(n * 0.85)
 
-    # Initialize model, loss, optimizer
+    df_train = df.iloc[:train_end]
+    df_val   = df.iloc[train_end:val_end]
+    df_test  = df.iloc[val_end:]
+
+    # --- 3. Dataset objects ---
+    seq_len = 192
+    output_horizon = 16
+
+    train_dataset = EnergyDataset(df_train, seq_len=seq_len, output_horizon=output_horizon)
+    val_dataset   = EnergyDataset(df_val, seq_len=seq_len, output_horizon=output_horizon)
+    test_dataset  = EnergyDataset(df_test, seq_len=seq_len, output_horizon=output_horizon)
+    
+    #train_dataset.print_info(n_examples=1)
+
+    # --- 4. DataLoaders ---
+    batch_size = 64
+    train_loader = DataLoader(train_dataset, batch_size=batch_size, shuffle=True)
+    val_loader   = DataLoader(val_dataset, batch_size=batch_size, shuffle=False)
+    test_loader  = DataLoader(test_dataset, batch_size=batch_size, shuffle=False)
+    
+    print(" -------DataLoader Constructred------- ")
+    print(f"Train batches: {len(train_loader)} | Val batches: {len(val_loader)} | Test batches: {len(test_loader)}")
+
+    # --- 5. Model, Loss, Optimizer ---
+    n_features = 6
+    output_dim = output_horizon
+
     model = CNN_LSTM_Forecaster(input_dim=n_features, seq_len=seq_len, output_dim=output_dim)
-    criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
+    criterion = torch.nn.MSELoss()
+    optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
 
-    # Forward pass
-    y_pred = model(X)
-    loss = criterion(y_pred, y_true)
+    # --- 6. Single Training Step Example ---
+    X_batch, y_batch = next(iter(train_loader))
+    y_pred = model(X_batch)
+    loss = criterion(y_pred, y_batch)
 
-    # Backward + Optimize
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
 
-    # Print output
-    print(f"Input shape : {X.shape}")
-    print(f"Output shape: {y_pred.shape}")
+    print(f"Batch input shape : {X_batch.shape}")
+    print(f"Batch output shape: {y_pred.shape}")
     print(f"Training loss: {loss.item():.6f}")

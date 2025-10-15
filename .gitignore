@@ -1,2 +1,7 @@
-# Ignoriere alles im data-Ordner
+# Ignore everything in the data folder
 data/
+
+# Ignore all __pycache__ directories
+__pycache__/
+*.py[cod]
+*$py.class
