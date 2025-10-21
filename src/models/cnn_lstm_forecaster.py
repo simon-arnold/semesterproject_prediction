@@ -1,3 +1,4 @@
+import torch
 import torch.nn as nn
 
 
@@ -26,12 +27,15 @@ class CNN_LSTM_Forecaster(nn.Module):
         self.lstm_input_size = 64  # number of filters from last Conv layer
 
         # --- LSTM for temporal modeling ---
-        self.lstm = nn.LSTM(input_size=self.lstm_input_size, hidden_size=64, batch_first=True)
+        self.lstm = nn.LSTM(input_size=self.lstm_input_size, hidden_size=128, 
+                           num_layers=2, batch_first=True, dropout=0.2)
 
         # --- Fully connected layers ---
-        self.fc1 = nn.Linear(64, 32)
-        self.fc2 = nn.Linear(32, output_dim)
-        self.tanh = nn.Tanh()
+        # Use ALL lstm outputs, not just last timestep
+        self.fc1 = nn.Linear(128 * conv_out_len, 256)  # Flatten all LSTM outputs
+        self.dropout = nn.Dropout(0.3)
+        self.fc2 = nn.Linear(256, 128)
+        self.fc3 = nn.Linear(128, output_dim)
 
     def _calc_conv_output(self, seq_len):
         """Helper to compute sequence length after two Conv+Pool stacks."""
@@ -55,9 +59,15 @@ class CNN_LSTM_Forecaster(nn.Module):
 
         # LSTM processing
         lstm_out, _ = self.lstm(x)
-        x = self.tanh(lstm_out[:, -1, :])   # take last timestep
+        # lstm_out shape: [batch, seq_len', 128]
+        
+        # Use ALL timesteps, not just the last one!
+        # This preserves temporal information throughout the sequence
+        x = lstm_out.reshape(lstm_out.size(0), -1)  # Flatten: [batch, seq_len' * 128]
 
         # Fully connected layers
-        x = self.fc1(x)
-        out = self.fc2(x)
+        x = nn.functional.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = nn.functional.relu(self.fc2(x))
+        out = torch.sigmoid(self.fc3(x))  # Sigmoid to constrain output to [0, 1]
         return out

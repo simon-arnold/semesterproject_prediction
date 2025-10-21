@@ -5,6 +5,9 @@ from training.train_loop import train_model
 from training.evaluate import evaluate_model, plot_predictions
 from torch.utils.data import DataLoader
 import torch
+import os
+
+store_onnx = True  
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -19,9 +22,15 @@ def main():
     # 3️. Create datasets
     seq_len = 2*24*4
     output_horizon = 4*4
-    train_set = EnergyDataset(df_train, seq_len, output_horizon)
-    val_set = EnergyDataset(df_val, seq_len, output_horizon)
-    test_set = EnergyDataset(df_test, seq_len, output_horizon)
+    
+    # IMPORTANT: Fit scaler on training data, then reuse for val/test!
+    train_set = EnergyDataset(df_train, seq_len, output_horizon, normalize=True, scaler=None)
+    val_set = EnergyDataset(df_val, seq_len, output_horizon, normalize=True, scaler=train_set.scaler)
+    test_set = EnergyDataset(df_test, seq_len, output_horizon, normalize=True, scaler=train_set.scaler)
+    
+    print(f"\n✅ Scaler fitted on training data:")
+    print(f"   Min values: {train_set.scaler.data_min_}")
+    print(f"   Max values: {train_set.scaler.data_max_}")
 
     # 4️. DataLoaders
     batch_size = 64
@@ -30,11 +39,49 @@ def main():
     test_loader  = DataLoader(test_set, batch_size=batch_size)
 
     # 5️. Model + Training
+    training_epochs = 1*10
     model = CNN_LSTM_Forecaster(input_dim=6, seq_len=seq_len, output_dim=output_horizon).to(device)
-    model, best_val_loss = train_model(model, train_loader, val_loader, n_epochs=10, lr=1e-4, device=device)
+    model, best_val_loss = train_model(model, train_loader, val_loader, n_epochs=training_epochs, lr=1e-4, device=device)
 
-    # 6️. Save model
-    torch.save(model.state_dict(), "NN_weights/cnn_lstm_forecaster.pth")
+    # 6️. Save model (PyTorch format)
+    save_dir = "NN_storage/NN_weights"
+    os.makedirs(save_dir, exist_ok=True)
+    
+    pth_path = os.path.join(save_dir, "cnn_lstm_forecaster.pth")
+    torch.save(model.state_dict(), pth_path)
+    print(f" Model saved as PyTorch weights: {pth_path}")
+    
+    
+    if store_onnx:
+        # 6b. Save model as ONNX (directly in NN_Storage/)
+        onnx_dir = "NN_storage"
+        os.makedirs(onnx_dir, exist_ok=True)
+        onnx_path = os.path.join(onnx_dir, "cnn_lstm_forecaster.onnx")
+        
+        # Set model to eval mode for export
+        model.eval()
+        
+        # Create dummy input with correct shape [batch_size, seq_len, num_features]
+        dummy_input = torch.randn(1, seq_len, 6).to(device)
+        
+        # Export to ONNX
+        torch.onnx.export(
+            model,                          # model being run
+            dummy_input,                    # model input (or a tuple for multiple inputs)
+            onnx_path,                      # where to save the model
+            export_params=True,             # store the trained parameter weights
+            opset_version=14,               # ONNX version to export to
+            do_constant_folding=True,       # optimize constant folding
+            input_names=['input'],          # model's input names
+            output_names=['output'],        # model's output names
+            dynamic_axes={                  # variable length axes
+                'input': {0: 'batch_size'},
+                'output': {0: 'batch_size'}
+            }
+        )
+        print(f"✅ Model exported as ONNX: {onnx_path}")
+        print(f"   Input shape: [batch_size, {seq_len}, 6]")
+        print(f"   Output shape: [batch_size, {output_horizon}]")
 
     # 7️. Evaluate
     test_metrics = evaluate_model(model, test_loader, device)

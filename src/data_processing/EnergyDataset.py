@@ -12,11 +12,13 @@ import matplotlib.pyplot as plt
 # Dataset class
 # -----------------------------
 class EnergyDataset(Dataset):
-    def __init__(self, df, seq_len=192, output_horizon=16, normalize=True):
+    def __init__(self, df, seq_len=192, output_horizon=16, normalize=True, scaler=None):
         """
         df: pandas DataFrame with columns ['Year','Month','Day','Timestep','Weekday','Load']
         seq_len: length of the input sequence
         output_horizon: length of the output (e.g. 16 for 4x4)
+        normalize: whether to normalize the data
+        scaler: pre-fitted scaler (if None, will fit a new one - use for training data only!)
         """
         self.seq_len = seq_len
         self.output_horizon = output_horizon
@@ -24,11 +26,17 @@ class EnergyDataset(Dataset):
         df = df.copy()
 
         # Optional normalization
-        self.scaler = None
+        self.scaler = scaler
         if normalize:
-            self.scaler = MinMaxScaler()
-            df[['Year','Month','Day','Timestep','Weekday','Load']] = self.scaler.fit_transform(
-                df[['Year','Month','Day','Timestep','Weekday','Load']])
+            if self.scaler is None:
+                # Fit new scaler (only for training data!)
+                self.scaler = MinMaxScaler()
+                df[['Year','Month','Day','Timestep','Weekday','Load']] = self.scaler.fit_transform(
+                    df[['Year','Month','Day','Timestep','Weekday','Load']])
+            else:
+                # Use pre-fitted scaler (for validation/test data)
+                df[['Year','Month','Day','Timestep','Weekday','Load']] = self.scaler.transform(
+                    df[['Year','Month','Day','Timestep','Weekday','Load']])
 
         self.X, self.y = self.create_sequences(df)
 

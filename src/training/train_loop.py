@@ -4,10 +4,14 @@ import torch
 from torch import nn
 from tqdm import tqdm
 import os
+from torch.utils.tensorboard.writer import SummaryWriter
+from datetime import datetime
 
-def train_model(model, train_loader, val_loader, n_epochs=20, lr=1e-4, device="cpu", save_path="NN_weights/best_model.pth"):
+
+def train_model(model, train_loader, val_loader, n_epochs=20, lr=1e-4, device="cpu", 
+                save_path="NN_storage/NN_weights/best_model.pth", log_dir=None):
     """
-    Trains a PyTorch model using given DataLoaders.
+    Trains a PyTorch model using given DataLoaders with TensorBoard logging.
 
     Args:
         model: PyTorch model to train
@@ -17,6 +21,7 @@ def train_model(model, train_loader, val_loader, n_epochs=20, lr=1e-4, device="c
         lr: learning rate
         device: 'cuda' or 'cpu'
         save_path: path to save the best model
+        log_dir: TensorBoard log directory (None = auto-generate with timestamp)
 
     Returns:
         model (with best weights)
@@ -24,12 +29,36 @@ def train_model(model, train_loader, val_loader, n_epochs=20, lr=1e-4, device="c
     """
 
     optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    criterion = nn.L1Loss()  # Mean Absolute Error
+    criterion = nn.MSELoss()  # Mean Squared Error - better for regression
 
     best_val_loss = float('inf')
     train_losses, val_losses = [], []
 
+    # Create TensorBoard writer with timestamp
+    if log_dir is None:
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        log_dir = f"runs/load_predictor_{timestamp}"
+    
+    writer = SummaryWriter(log_dir=log_dir)
+    print(f"📊 TensorBoard logs will be saved to: {log_dir}")
+    print(f"   Run: tensorboard --logdir=runs")
+
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
+    
+    # Log model architecture
+    try:
+        dummy_input = torch.randn(1, train_loader.dataset.seq_len, 6).to(device)
+        writer.add_graph(model, dummy_input)
+    except Exception as e:
+        print(f"⚠️  Could not log model graph: {e}")
+    
+    # Log hyperparameters
+    writer.add_text('Hyperparameters', 
+                    f'lr={lr}, n_epochs={n_epochs}, batch_size={train_loader.batch_size}')
+    
+    total_params = sum(p.numel() for p in model.parameters())
+    trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
+    writer.add_text('Model', f'Total params: {total_params:,}, Trainable: {trainable_params:,}')
 
     for epoch in range(n_epochs):
         model.train()
@@ -61,6 +90,27 @@ def train_model(model, train_loader, val_loader, n_epochs=20, lr=1e-4, device="c
 
         train_losses.append(train_loss)
         val_losses.append(val_loss)
+        
+        # Log metrics to TensorBoard
+        writer.add_scalar('Loss/train', train_loss, epoch)
+        writer.add_scalar('Loss/validation', val_loss, epoch)
+        writer.add_scalars('Loss/train_vs_val', {
+            'train': train_loss,
+            'validation': val_loss
+        }, epoch)
+        
+        # Log learning rate
+        current_lr = optimizer.param_groups[0]['lr']
+        writer.add_scalar('Learning_Rate', current_lr, epoch)
+        
+        # Log gradient norms (for debugging)
+        total_norm = 0
+        for p in model.parameters():
+            if p.grad is not None:
+                param_norm = p.grad.data.norm(2)
+                total_norm += param_norm.item() ** 2
+        total_norm = total_norm ** 0.5
+        writer.add_scalar('Gradient/norm', total_norm, epoch)
 
         print(f"Epoch {epoch+1:02d}/{n_epochs} | Train Loss: {train_loss:.6f} | Val Loss: {val_loss:.6f}")
 
@@ -68,9 +118,27 @@ def train_model(model, train_loader, val_loader, n_epochs=20, lr=1e-4, device="c
         if val_loss < best_val_loss:
             best_val_loss = val_loss
             torch.save(model.state_dict(), save_path)
-            print(f"  New best model saved ({save_path})")
+            writer.add_scalar('Best_Val_Loss', best_val_loss, epoch)
+            print(f"  ✅ New best model saved ({save_path})")
 
     print(f"\nTraining finished. Best Validation Loss: {best_val_loss:.6f}")
+    
+    # Log final hyperparameters with results
+    writer.add_hparams(
+        {
+            'lr': lr,
+            'batch_size': train_loader.batch_size,
+            'n_epochs': n_epochs
+        },
+        {
+            'hparam/best_val_loss': best_val_loss,
+            'hparam/final_train_loss': train_losses[-1],
+        }
+    )
+    
+    # Close the writer
+    writer.close()
+    print(f"📊 TensorBoard logs saved. View with: tensorboard --logdir=runs")
 
     # Load best weights back
     model.load_state_dict(torch.load(save_path, weights_only=True))
