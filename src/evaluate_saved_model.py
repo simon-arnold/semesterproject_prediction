@@ -12,11 +12,19 @@ Usage:
 from data_processing.EnergyDataset import EnergyDataset
 from data_processing.data_utils import load_energy_hdf_to_pandas, split_dataframe
 from models.cnn_lstm_forecaster import CNN_LSTM_Forecaster
-from training.evaluate import evaluate_model, plot_predictions, plot_full_test_set, plot_full_test_set_non_overlapping, plot_test_data_overview, plot_raw_dataframe, plot_prediction_at_date, plot_multiple_predictions_at_date
+from training.evaluate import evaluate_model, plot_predictions, plot_full_test_set_predictions, plot_raw_dataframe, plot_multiple_predictions_at_date
 from torch.utils.data import DataLoader
 import torch
 import argparse
 import os
+
+# ANSI Color codes for terminal output
+RED = '\033[91m'
+GREEN = '\033[92m'
+YELLOW = '\033[93m'
+BLUE = '\033[94m'
+CYAN = '\033[96m'
+RESET = '\033[0m'
 
 
 def load_test_data(data_path="data/data/dfA_300s.hdf", seq_len=192, output_horizon=16):
@@ -30,18 +38,17 @@ def load_test_data(data_path="data/data/dfA_300s.hdf", seq_len=192, output_horiz
         df_val: Raw validation dataframe
         df_test: Raw test dataframe
     """
-    print(f"📊 Loading data from {data_path}...")
+    print(f"{CYAN} Loading data from {data_path}...{RESET}")
     df = load_energy_hdf_to_pandas(data_path, plot_data=False)
     
     # Split (same splits as training)
     df_train, df_val, df_test = split_dataframe(df, 0.7, 0.15, 0.15)
     
     # Create datasets with scaler from training data
-    print("⚙️  Creating datasets...")
     train_set = EnergyDataset(df_train, seq_len, output_horizon, normalize=True, scaler=None)
     test_set = EnergyDataset(df_test, seq_len, output_horizon, normalize=True, scaler=train_set.scaler)
     
-    print(f"✅ Scaler info (fitted on training data):")
+    print(f"-- Scaler info (fitted on training data): --")
     print(f"   Min: {train_set.scaler.data_min_}")
     print(f"   Max: {train_set.scaler.data_max_}")
     print(f"   Train samples: {len(df_train)}")
@@ -50,6 +57,8 @@ def load_test_data(data_path="data/data/dfA_300s.hdf", seq_len=192, output_horiz
     
     # Create DataLoader
     test_loader = DataLoader(test_set, batch_size=64)
+    
+    print(f"{GREEN} Data loaded successfully!{RESET}")
     
     return test_loader, train_set.scaler, df_train, df_val, df_test
 
@@ -67,7 +76,7 @@ def load_model(model_path, seq_len=192, output_horizon=16, device='cpu'):
     Returns:
         model: Loaded model in eval mode
     """
-    print(f"🔄 Loading model from {model_path}...")
+    print(f"{CYAN} Loading model from {model_path}...{RESET}")
     
     # Initialize model architecture
     model = CNN_LSTM_Forecaster(
@@ -80,7 +89,7 @@ def load_model(model_path, seq_len=192, output_horizon=16, device='cpu'):
     model.load_state_dict(torch.load(model_path, map_location=device, weights_only=True))
     model.eval()
     
-    print(f"✅ Model loaded successfully!")
+    print(f"{GREEN} Model loaded successfully!{RESET}")
     print(f"   Parameters: {sum(p.numel() for p in model.parameters()):,}")
     
     return model
@@ -104,42 +113,29 @@ def main():
                         help='Batch size for evaluation')
     parser.add_argument('--plot_full', action='store_true', 
                         help='Plot entire test set in one continuous timeline')
-    parser.add_argument('--no_overlap', action='store_true',
-                        help='Use with --plot_full: only plot non-overlapping predictions (recommended!)')
     parser.add_argument('--skip_examples', action='store_true',
                         help='Skip individual example plots (useful with --plot_full)')
-    parser.add_argument('--plot_data_only', action='store_true',
+    parser.add_argument('--plot_train_val_test', action='store_true',
                         help='Plot only test data without predictions (no model loading needed)')
     parser.add_argument('--predict_at_date', type=str, default=None,
                         help='Make prediction starting at specific date (format: YYYY-MM-DD, e.g., 2018-08-31)')
     
     args = parser.parse_args()
-    
-    # Device
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"🖥️  Using device: {device}\n")
+    print(f"  Using device: {device}\n")
     
-    # 1. Load test data
     test_loader, scaler, df_train, df_val, df_test = load_test_data(
         args.data_path, 
         args.seq_len, 
         args.output_horizon
     )
     
-    # If only plotting data (no predictions), skip model loading
-    if args.plot_data_only:
-        print(f"\n📊 Plotting train/val/test datasets...")
-        plot_raw_dataframe((df_train, df_val, df_test), title="Complete Dataset")
-        print(f"\n✅ Done!")
-        return
-    
-    # Check if model exists
     if not os.path.exists(args.model_path):
-        print(f"❌ Error: Model not found at {args.model_path}")
-        print(f"   Please train a model first or specify correct path with --model_path")
+        print(f"{RED}  Error: Model not found at {args.model_path}{RESET}")
+        print(f"{RED}   Please train a model first or specify correct path with --model_path{RESET}")
         return
     
-    # 2. Load model
     model = load_model(
         args.model_path,
         args.seq_len,
@@ -147,68 +143,49 @@ def main():
         device
     )
     
-    # Special case: Prediction at specific date
-    if args.predict_at_date:
-        print(f"\n🎯 Making {args.n_examples} prediction(s) starting at: {args.predict_at_date}")
-        if args.n_examples == 1:
-            # Single prediction
-            plot_prediction_at_date(
-                model, 
-                df_test, 
-                args.predict_at_date, 
-                seq_len=args.seq_len,
-                output_horizon=args.output_horizon,
-                scaler=scaler,
-                device=device
-            )
-        else:
-            # Multiple predictions spaced 12 hours apart
-            plot_multiple_predictions_at_date(
-                model,
-                df_test,
-                args.predict_at_date,
-                n_examples=args.n_examples,
-                seq_len=args.seq_len,
-                output_horizon=args.output_horizon,
-                scaler=scaler,
-                device=device
-            )
-        print(f"\n✅ Done!")
-        return
     
-    # 3. Evaluate
-    print(f"\n📈 Evaluating on test set...")
-    test_metrics = evaluate_model(model, test_loader, device)
+    # Plotting specific cases:
     
-    print(f"\n" + "="*50)
-    print(f"TEST RESULTS")
-    print(f"="*50)
-    for metric, value in test_metrics.items():
-        print(f"{metric}: {value:.6f}")
-    print(f"="*50)
+    # Plotting only data loader data
+    if args.plot_train_val_test:
+        plot_raw_dataframe((df_train, df_val, df_test), title="Complete Dataset")
+
     
-    # 4. Plot predictions
-    if args.plot_full:
-        # Plot entire test set in one continuous plot
-        if args.no_overlap:
-            print(f"\n📊 Plotting entire test set (NON-OVERLAPPING)...")
-            all_preds, all_targets = plot_full_test_set_non_overlapping(
-                model, test_loader, device, 
-                output_horizon=args.output_horizon,
-                df_test=df_test,
-                seq_len=args.seq_len,
-                scaler=scaler
-            )
-        else:
-            print(f"\n📊 Plotting entire test set (with overlaps)...")
-            all_preds, all_targets = plot_full_test_set(model, test_loader, device)
-        
+    # Prediction at specific date
+    # Possibly multiple predictions spaced 12 hours apart
     if not args.skip_examples:
-        # Plot individual examples
-        print(f"\n📊 Generating {args.n_examples} individual prediction examples...")
-        plot_predictions(model, test_loader, device, n_examples=args.n_examples)
+        plot_multiple_predictions_at_date(
+            model,
+            df_test,
+            args.predict_at_date,
+            n_examples=args.n_examples,
+            seq_len=args.seq_len,
+            output_horizon=args.output_horizon,
+            scaler=scaler,
+            device=device
+        )
+        
+        plot_predictions(model, test_loader, device, n_examples=args.n_examples)    
+        
+        
+    # Plot predictions all 16 timesteps - get an overview of full prediction
+    if args.plot_full:
+        all_preds, all_targets = plot_full_test_set_predictions(
+            model, test_loader, device, 
+            output_horizon=args.output_horizon,
+            df_test=df_test,
+            seq_len=args.seq_len,
+            scaler=scaler
+        )
+        
+        
+    # 3. Evaluate
+    test_metrics = evaluate_model(model, test_loader, device)
+
     
-    print(f"\n✅ Evaluation complete!")
+    # Wait for user input before closing
+    input(f"\n{YELLOW}Press Enter to exit...{RESET}")
+
 
 
 if __name__ == "__main__":

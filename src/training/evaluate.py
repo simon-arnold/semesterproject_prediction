@@ -3,6 +3,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
 
+RED = '\033[91m'
+GREEN = '\033[92m'
+YELLOW = '\033[93m'
+BLUE = '\033[94m'
+CYAN = '\033[96m'
+RESET = '\033[0m'
+
 def evaluate_model(model, test_loader, device="cpu"):
     """
     Evaluates a trained model on the test set and computes metrics.
@@ -47,11 +54,12 @@ def evaluate_model(model, test_loader, device="cpu"):
     return {"MSE": total_loss, "RMSE": rmse, "MAE": mae, "MAPE": mape}
 
 
-def plot_predictions(model, test_loader, device="cpu", n_examples=3):
+def plot_predictions(model, test_loader, device="cpu", n_examples=1):
     """
     Plots example predictions from the test set.
     Shows input sequence, true output, and predicted output.
     """
+    print(f"{CYAN}Generating one prediction from test set...{RESET}")
     model.eval()
     with torch.no_grad():
         for X_test, y_test in test_loader:
@@ -76,9 +84,12 @@ def plot_predictions(model, test_loader, device="cpu", n_examples=3):
                 plt.legend()
                 plt.grid(True)
                 plt.tight_layout()
-                plt.show()
+                plt.show(block=False)
+                plt.pause(0.1) 
 
             break
+
+    print(f"{GREEN}Generated one prediction plot!{RESET}")
 
 
 def plot_raw_dataframe(df, title="Test Data"):
@@ -93,15 +104,15 @@ def plot_raw_dataframe(df, title="Test Data"):
     # Check if we have multiple dataframes
     if isinstance(df, tuple) and len(df) == 3:
         df_train, df_val, df_test = df
-        
-        print(f"📊 Plotting train/val/test split...")
+
+        print(f"{CYAN} Plotting train/val/test split...{RESET}")
         print(f"   Train: {len(df_train)} samples ({df_train.index[0]} to {df_train.index[-1]})")
         print(f"   Val:   {len(df_val)} samples ({df_val.index[0]} to {df_val.index[-1]})")
         print(f"   Test:  {len(df_test)} samples ({df_test.index[0]} to {df_test.index[-1]})")
         
         # Check for Load column
         if 'Load' not in df_train.columns:
-            print(f"⚠️  Warning: 'Load' column not found. Using first column")
+            print(f"Warning: 'Load' column not found. Using first column")
             load_col = df_train.columns[0]
         else:
             load_col = 'Load'
@@ -136,18 +147,19 @@ def plot_raw_dataframe(df, title="Test Data"):
         fig.suptitle(f"{title} - Complete Dataset Split", fontsize=14, fontweight='bold', y=0.995)
         
         plt.tight_layout()
-        plt.show()
+        plt.show(block=False)
+        plt.pause(0.1) 
         
     else:
         # Single dataframe
-        print(f"📊 Plotting raw dataframe...")
+        print(f"Plotting raw dataframe...")
         print(f"   Shape: {df.shape}")
         print(f"   Columns: {list(df.columns)}")
         print(f"   Date range: {df.index[0]} to {df.index[-1]}")
         
         # Check if 'Load' column exists
         if 'Load' not in df.columns:
-            print(f"⚠️  Warning: 'Load' column not found. Available columns: {list(df.columns)}")
+            print(f"Warning: 'Load' column not found. Available columns: {list(df.columns)}")
             load_col = df.columns[0]  # Use first column as fallback
             print(f"   Using '{load_col}' instead")
         else:
@@ -175,8 +187,8 @@ def plot_raw_dataframe(df, title="Test Data"):
         
         plt.tight_layout()
         plt.show()
-    
-    print(f"✅ Plot generated!")
+
+    print(f"{GREEN}Train/data/test plot generated!{RESET}")
 
 
 def plot_test_data_overview(test_loader):
@@ -189,7 +201,7 @@ def plot_test_data_overview(test_loader):
     """
     all_targets = []
     
-    print("📊 Loading test data for visualization...")
+    print("Loading test data for visualization...")
     
     for X_test, y_test in test_loader:
         all_targets.append(y_test.cpu().numpy())
@@ -200,7 +212,7 @@ def plot_test_data_overview(test_loader):
     # Flatten to create continuous timeline
     target_timeline = all_targets.flatten()
     
-    print(f"✅ Loaded {len(all_targets)} test samples ({len(target_timeline)} timesteps total)")
+    print(f"Loaded {len(all_targets)} test samples ({len(target_timeline)} timesteps total)")
     
     # Create figure
     plt.figure(figsize=(20, 6))
@@ -229,144 +241,12 @@ def plot_test_data_overview(test_loader):
     
     plt.show()
     
-    print(f"📊 Test data overview plot generated!")
+    print(f"Test data overview plot generated!")
     
     return all_targets
 
 
-def plot_prediction_at_date(model, df_test, target_date, seq_len=192, output_horizon=16, scaler=None, device="cpu"):
-    """
-    Plot a specific prediction starting at a given date.
-    
-    Args:
-        model: Trained model
-        df_test: Test dataframe
-        target_date: Date string (e.g., '2018-08-31') or datetime object
-        seq_len: Sequence length for input
-        output_horizon: Prediction horizon
-        scaler: MinMaxScaler for normalization
-        device: Device for model inference
-    """
-    import pandas as pd
-    from data_processing.EnergyDataset import EnergyDataset
-    
-    print(f"🔍 Searching for date {target_date} in test data...")
-    
-    # Convert to datetime if string
-    if isinstance(target_date, str):
-        target_date = pd.to_datetime(target_date)
-    
-    # Find the closest date in the dataframe
-    if target_date not in df_test.index:
-        # Find closest date
-        closest_idx = df_test.index.get_indexer([target_date], method='nearest')[0]
-        actual_date = df_test.index[closest_idx]
-        print(f"⚠️  Exact date not found. Using closest date: {actual_date}")
-    else:
-        actual_date = target_date
-        closest_idx = df_test.index.get_loc(actual_date)
-    
-    # Make sure we have enough history for the sequence
-    if closest_idx < seq_len:
-        print(f"❌ Error: Not enough history. Need {seq_len} timesteps before {actual_date}")
-        print(f"   First available date: {df_test.index[seq_len]}")
-        return
-    
-    # Make sure we have enough future for the output
-    if closest_idx + output_horizon > len(df_test):
-        print(f"❌ Error: Not enough future data. Need {output_horizon} timesteps after {actual_date}")
-        return
-    
-    # Extract the sequence (input) and target (output)
-    start_idx = closest_idx - seq_len
-    end_idx = closest_idx
-    future_idx = closest_idx + output_horizon
-    
-    input_data = df_test.iloc[start_idx:end_idx]
-    target_data = df_test.iloc[end_idx:future_idx]
-    
-    print(f"✅ Found valid sequence:")
-    print(f"   Input period: {input_data.index[0]} to {input_data.index[-1]}")
-    print(f"   Target period: {target_data.index[0]} to {target_data.index[-1]}")
-    
-    # Normalize if scaler provided
-    if scaler is not None:
-        input_normalized = scaler.transform(input_data.values)
-        target_normalized = scaler.transform(target_data.values)
-    else:
-        input_normalized = input_data.values
-        target_normalized = target_data.values
-    
-    # Prepare input for model
-    import torch
-    X = torch.FloatTensor(input_normalized).unsqueeze(0).to(device)  # Add batch dimension
-    
-    # Get prediction
-    model.eval()
-    with torch.no_grad():
-        y_pred = model(X)
-        pred_normalized = y_pred.cpu().numpy()[0]  # Remove batch dimension
-    
-    # Denormalize if needed
-    if scaler is not None:
-        # Create dummy array with same shape as original features
-        pred_full = np.zeros((len(pred_normalized), input_data.shape[1]))
-        pred_full[:, -1] = pred_normalized  # Assuming Load is last column
-        pred_denormalized = scaler.inverse_transform(pred_full)[:, -1]
-        
-        target_full = np.zeros_like(target_normalized)
-        target_full[:, -1] = target_normalized[:, -1]
-        target_denormalized = scaler.inverse_transform(target_full)[:, -1]
-    else:
-        pred_denormalized = pred_normalized
-        target_denormalized = target_normalized[:, -1]
-    
-    # Plot
-    plt.figure(figsize=(16, 6))
-    
-    # Get Load column (original values, not normalized)
-    input_load = input_data['Load'].values if 'Load' in input_data.columns else input_data.iloc[:, -1].values
-    target_load = target_data['Load'].values if 'Load' in target_data.columns else target_data.iloc[:, -1].values
-    
-    # Create time axis
-    input_times = input_data.index
-    target_times = target_data.index
-    
-    # Plot input sequence
-    plt.plot(input_times, input_load, 'b-', label='Input Sequence (Historical)', linewidth=1.5, alpha=0.8)
-    
-    # Plot ground truth
-    plt.plot(target_times, target_load, 'g-o', label='Ground Truth', linewidth=2, markersize=4)
-    
-    # Plot prediction
-    plt.plot(target_times, pred_denormalized, 'r--x', label='Prediction', linewidth=2, markersize=5)
-    
-    plt.axvline(x=actual_date, color='gray', linestyle=':', linewidth=2, alpha=0.5, label='Prediction Start')
-    
-    plt.xlabel('Time', fontsize=12)
-    plt.ylabel('Load [kW]', fontsize=12)
-    plt.title(f'Prediction starting at {actual_date.strftime("%Y-%m-%d %H:%M")}', fontsize=14, fontweight='bold')
-    plt.legend(fontsize=11, loc='best')
-    plt.grid(True, alpha=0.3)
-    
-    # Calculate error
-    mae = np.mean(np.abs(pred_denormalized - target_load))
-    mse = np.mean((pred_denormalized - target_load) ** 2)
-    
-    textstr = f'MAE: {mae:.3f} kW\nMSE: {mse:.3f} kW²'
-    props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
-    plt.text(0.02, 0.98, textstr, transform=plt.gca().transAxes, fontsize=11,
-             verticalalignment='top', bbox=props)
-    
-    plt.tight_layout()
-    plt.show()
-    
-    print(f"✅ Prediction plot generated!")
-    print(f"   MAE: {mae:.3f} kW")
-    print(f"   MSE: {mse:.3f} kW²")
-
-
-def plot_multiple_predictions_at_date(model, df_test, start_date, n_examples=5, seq_len=192, output_horizon=16, scaler=None, device="cpu"):
+def plot_multiple_predictions_at_date(model, df_test, start_date = None, n_examples=5, seq_len=192, output_horizon=16, scaler=None, device="cpu"):
     """
     Plot multiple predictions starting at a given date, spaced 12 hours (half day) apart.
     
@@ -380,37 +260,46 @@ def plot_multiple_predictions_at_date(model, df_test, start_date, n_examples=5, 
         scaler: MinMaxScaler for normalization
         device: Device for model inference
     """
-    import pandas as pd
-    
-    print(f"🔍 Generating {n_examples} predictions starting from {start_date}, spaced 12 hours apart...")
-    
-    # Convert to datetime if string
-    if isinstance(start_date, str):
-        start_date = pd.to_datetime(start_date)
+
+    print(f"{CYAN}Generating {n_examples} predictions from test set...{RESET}")
     
     # 12 hours = 48 timesteps (at 15-minute intervals)
     spacing_timesteps = 48
     
-    # Find starting index
-    if start_date not in df_test.index:
-        closest_idx = df_test.index.get_indexer([start_date], method='nearest')[0]
+    # Handle start_date
+    if start_date is None:
+        # Use earliest possible date (need seq_len history)
+        closest_idx = seq_len
         actual_start = df_test.index[closest_idx]
-        print(f"⚠️  Exact date not found. Using closest date: {actual_start}")
+        print(f"   No start date provided. Using earliest possible date: {actual_start}")
+        print(f"   Generating {n_examples} predictions spaced 12 hours apart...")
     else:
-        actual_start = start_date
-        closest_idx = df_test.index.get_loc(actual_start)
+        print(f"   Generating {n_examples} predictions starting from {start_date}, spaced 12 hours apart...")
+
+        # Convert to datetime if string
+        if isinstance(start_date, str):
+            start_date = pd.to_datetime(start_date)
+        
+        # Find starting index
+        if start_date not in df_test.index:
+            closest_idx = df_test.index.get_indexer([start_date], method='nearest')[0]
+            actual_start = df_test.index[closest_idx]
+            print(f"Exact date not found. Using closest date: {actual_start}")
+        else:
+            actual_start = start_date
+            closest_idx = df_test.index.get_loc(actual_start)
     
     # Check if we have enough data
     last_needed_idx = closest_idx + (n_examples - 1) * spacing_timesteps + output_horizon
     if closest_idx < seq_len:
-        print(f"❌ Error: Not enough history. Need {seq_len} timesteps before {actual_start}")
+        print(f" Error: Not enough history. Need {seq_len} timesteps before {actual_start}")
         return
     if last_needed_idx > len(df_test):
-        print(f"❌ Error: Not enough data for {n_examples} predictions")
-        print(f"   Try reducing n_examples or choosing an earlier start date")
+        print(f" Error: Not enough data for {n_examples} predictions")
+        print(f"  Try reducing n_examples or choosing an earlier start date")
         return
     
-    print(f"✅ Generating predictions...")
+    
     
     for i in range(n_examples):
         pred_start_idx = closest_idx + i * spacing_timesteps
@@ -434,8 +323,7 @@ def plot_multiple_predictions_at_date(model, df_test, start_date, n_examples=5, 
             input_normalized = input_data.values
             target_normalized = target_data.values
         
-        # Prepare input for model
-        import torch
+
         X = torch.FloatTensor(input_normalized).unsqueeze(0).to(device)
         
         # Get prediction
@@ -486,86 +374,13 @@ def plot_multiple_predictions_at_date(model, df_test, start_date, n_examples=5, 
                  verticalalignment='top', bbox=props)
         
         plt.tight_layout()
-        plt.show()
-    
-    print(f"✅ Generated {n_examples} prediction plots!")
+        plt.show(block=False)
+        plt.pause(0.1)  # Brief pause to ensure plot displays
+
+    print(f"{GREEN}Generated {n_examples} prediction plots!{RESET}")
 
 
-def plot_full_test_set(model, test_loader, device="cpu"):
-    """
-    Plots ALL test predictions in a single continuous timeline.
-    Shows the complete test set with predictions vs. ground truth.
-    
-    WICHTIG: Da das Dataset mit Sliding Window erstellt wurde, gibt es Überlappungen.
-    Diese Funktion plottet ALLE Predictions (mit Überlappungen).
-    Für eine sauberere Darstellung siehe plot_full_test_set_non_overlapping().
-    
-    Args:
-        model: Trained model
-        test_loader: DataLoader for test set
-        device: Device to run inference on
-    """
-    model.eval()
-    all_preds = []
-    all_targets = []
-    
-    print("🔄 Generating predictions for entire test set...")
-    print("⚠️  Warnung: Dataset hat Sliding Window → Predictions überlappen sich!")
-    
-    with torch.no_grad():
-        for X_test, y_test in test_loader:
-            X_test, y_test = X_test.to(device), y_test.to(device)
-            y_pred = model(X_test)
-            
-            all_preds.append(y_pred.cpu().numpy())
-            all_targets.append(y_test.cpu().numpy())
-    
-    # Concatenate all predictions and targets
-    all_preds = np.concatenate(all_preds, axis=0)      # Shape: (n_samples, output_horizon)
-    all_targets = np.concatenate(all_targets, axis=0)  # Shape: (n_samples, output_horizon)
-    
-    # Flatten to create continuous timeline
-    # Note: There will be overlaps since we predict output_horizon steps at a time
-    pred_timeline = all_preds.flatten()
-    target_timeline = all_targets.flatten()
-    
-    print(f"✅ Generated {len(all_preds)} predictions ({len(pred_timeline)} timesteps total)")
-    print(f"   ⚠️  Jeder Timestep wird bis zu {min(16, len(all_preds))} mal vorhergesagt (Überlappung)")
-    
-    # Create figure
-    plt.figure(figsize=(20, 6))
-    
-    timesteps = np.arange(len(target_timeline))
-    
-    plt.plot(timesteps, target_timeline, 'b-', label='Ground Truth', alpha=0.7, linewidth=1)
-    plt.plot(timesteps, pred_timeline, 'r-', label='Predictions', alpha=0.7, linewidth=1)
-    
-    plt.xlabel("Timestep (flattened sequences - mit Überlappungen!)", fontsize=12)
-    plt.ylabel("Normalized Load", fontsize=12)
-    plt.title(f"Full Test Set: Predictions vs Ground Truth ({len(all_preds)} samples) - MIT ÜBERLAPPUNGEN", fontsize=14)
-    plt.legend(fontsize=11)
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    
-    # Calculate and display metrics
-    mse = np.mean((pred_timeline - target_timeline) ** 2)
-    mae = np.mean(np.abs(pred_timeline - target_timeline))
-    
-    # Add text box with metrics
-    textstr = f'MSE: {mse:.6f}\nMAE: {mae:.6f}\n(mit Überlappungen)'
-    props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
-    plt.text(0.02, 0.98, textstr, transform=plt.gca().transAxes, fontsize=11,
-             verticalalignment='top', bbox=props)
-    
-    plt.show()
-    
-    print(f"📊 Full test set plot generated!")
-    print(f"💡 Tipp: Für nicht-überlappende Predictions verwende plot_full_test_set_non_overlapping()")
-    
-    return all_preds, all_targets
-
-
-def plot_full_test_set_non_overlapping(model, test_loader, device="cpu", output_horizon=16, df_test=None, seq_len=192, scaler=None):
+def plot_full_test_set_predictions(model, test_loader, device="cpu", output_horizon=16, df_test=None, seq_len=192, scaler=None):
     """
     Plottet Test-Predictions OHNE Überlappungen.
     Nimmt nur jeden output_horizon-ten Sample für eine echte kontinuierliche Timeline.
@@ -583,9 +398,9 @@ def plot_full_test_set_non_overlapping(model, test_loader, device="cpu", output_
     all_preds = []
     all_targets = []
     all_inputs = []
-    
-    print("🔄 Generating NON-OVERLAPPING predictions...")
-    
+
+    print(f"{CYAN}Generating Plot with predictions over the full test set...{RESET}")
+
     with torch.no_grad():
         for X_test, y_test in test_loader:
             X_test, y_test = X_test.to(device), y_test.to(device)
@@ -632,7 +447,7 @@ def plot_full_test_set_non_overlapping(model, test_loader, device="cpu", output_
     
     # Denormalize if scaler is provided
     if scaler is not None:
-        print(f"🔄 Denormalizing data...")
+        print(f"Denormalizing data...")
         # Denormalize input, predictions, and targets
         # Scaler expects shape (n_samples, n_features=6), but we only want to denormalize load (feature 0)
         # Create dummy arrays with zeros for other features
@@ -653,11 +468,11 @@ def plot_full_test_set_non_overlapping(model, test_loader, device="cpu", output_
 
         input_and_target_timeline = np.concatenate([input_timeline[:seq_len], target_timeline])
 
-        print(f"   ✅ Data denormalized to original scale")
+        print(f"   Data denormalized to original scale")
         print(f"   Input range: [{input_timeline.min():.2f}, {input_timeline.max():.2f}]")
         print(f"   Prediction range: [{pred_timeline.min():.2f}, {pred_timeline.max():.2f}]")
     
-    print(f"✅ Generated {len(selected_preds)} non-overlapping predictions")
+    print(f"Generated {len(selected_preds)} non-overlapping predictions")
     print(f"   Input timesteps: {len(input_timeline)}")
     print(f"   Prediction timesteps: {len(pred_timeline)}")
     print(f"   Total timesteps: {len(input_timeline) + len(pred_timeline)}")
@@ -742,8 +557,9 @@ def plot_full_test_set_non_overlapping(model, test_loader, device="cpu", output_
              verticalalignment='top', bbox=props)
     
     plt.tight_layout()
-    plt.show()
-    
-    print(f"📊 Non-overlapping test set plot generated!")
-    
+    plt.show(block=False)
+    plt.pause(0.1)  # Brief pause to ensure plot displays
+
+    print(f"{GREEN}Full test set plot generated!{RESET}")
+
     return selected_preds, selected_targets
