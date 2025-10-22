@@ -33,7 +33,8 @@ def main():
     print(f"   Max values: {train_set.scaler.data_max_}")
 
     # 4️. DataLoaders
-    batch_size = 64
+    batch_size = 32
+    
     train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
     val_loader   = DataLoader(val_set, batch_size=batch_size)
     test_loader  = DataLoader(test_set, batch_size=batch_size)
