@@ -64,12 +64,6 @@ class EnergyDataset(Dataset):
         self.input_start_dates = np.array(input_start_date_list, dtype='datetime64[ns]')
         self.input_end_dates = np.array(input_end_date_list, dtype='datetime64[ns]')
 
-        # print("seq x size:", X.shape)
-        # print("seq y size:", y.shape)
-        # print("input_start_dates length:", len(self.input_start_dates))
-        # print("input_end_dates length:", len(self.input_end_dates))
-
-        # input(f"\n{YELLOW}Press Enter to continue...{RESET}")
         
         return X, y
 

@@ -56,44 +56,6 @@ def evaluate_model(model, test_loader, device="cpu"):
     return {"MSE": total_loss, "RMSE": rmse, "MAE": mae, "MAPE": mape}
 
 
-def plot_predictions(model, test_loader, device="cpu", n_examples=1):
-    """
-    Plots example predictions from the test set.
-    Shows input sequence, true output, and predicted output.
-    """
-    print(f"{CYAN}Generating one prediction from test set...{RESET}")
-    model.eval()
-    with torch.no_grad():
-        for X_test, y_test in test_loader:
-            X_test, y_test = X_test.to(device), y_test.to(device)
-            y_pred = model(X_test)
-
-            for j in range(min(n_examples, X_test.size(0))):
-                plt.figure(figsize=(12, 4))
-                input_seq = X_test[j][:, -1].cpu().numpy()
-                target_seq = y_test[j].cpu().numpy()
-                pred_seq = y_pred[j].cpu().numpy()
-
-                plt.plot(range(len(input_seq)), input_seq, label='Input sequence', color='blue')
-                plt.plot(range(len(input_seq), len(input_seq) + len(target_seq)),
-                         target_seq, 'r-o', label='True target')
-                plt.plot(range(len(input_seq), len(input_seq) + len(pred_seq)),
-                         pred_seq, 'g--x', label='Prediction')
-
-                plt.xlabel("Timestep (15-min intervals)")
-                plt.ylabel("Normalized Load")
-                plt.title(f"Example Prediction {j+1}")
-                plt.legend()
-                plt.grid(True)
-                plt.tight_layout()
-                plt.show(block=False)
-                plt.pause(0.1) 
-
-            break
-
-    print(f"{GREEN}Generated one prediction plot!{RESET}")
-
-
 def plot_raw_dataframe(df, title="Test Data"):
     """
     Simply plots the raw DataFrame time series data (only 'Load' column).
