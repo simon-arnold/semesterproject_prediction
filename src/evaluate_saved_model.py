@@ -59,8 +59,8 @@ def load_test_data(data_path="data/data/dfA_300s.hdf", seq_len=192, output_horiz
     test_loader = DataLoader(test_set, batch_size=64)
     
     print(f"{GREEN} Data loaded successfully!{RESET}")
-    
-    return test_loader, train_set.scaler, df_train, df_val, df_test
+
+    return test_loader, train_set.scaler, train_set, test_set, df_train, df_val, df_test
 
 
 def load_model(model_path, seq_len=192, output_horizon=16, device='cpu'):
@@ -124,10 +124,10 @@ def main():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"  Using device: {device}\n")
-    
-    test_loader, scaler, df_train, df_val, df_test = load_test_data(
-        args.data_path, 
-        args.seq_len, 
+
+    test_loader, scaler, train_set, test_set, df_train, df_val, df_test = load_test_data(
+        args.data_path,
+        args.seq_len,
         args.output_horizon
     )
     
@@ -156,16 +156,15 @@ def main():
     if not args.skip_examples:
         plot_multiple_predictions_at_date(
             model,
-            df_test,
-            args.predict_at_date,
+            test_set=test_set,
+            start_date=args.predict_at_date,
             n_examples=args.n_examples,
             seq_len=args.seq_len,
             output_horizon=args.output_horizon,
-            scaler=scaler,
             device=device
         )
         
-        plot_predictions(model, test_loader, device, n_examples=args.n_examples)    
+        #plot_predictions(model, test_loader, device, n_examples=args.n_examples)    
         
         
     # Plot predictions all 16 timesteps - get an overview of full prediction

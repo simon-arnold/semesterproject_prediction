@@ -5,6 +5,9 @@ from sklearn.preprocessing import MinMaxScaler
 from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
 
+YELLOW = '\033[93m'
+RESET = '\033[0m'
+
 # from rich.traceback import install
 # install(show_locals=True)
 
@@ -43,14 +46,31 @@ class EnergyDataset(Dataset):
     def create_sequences(self, df):
         X_list = []
         y_list = []
+        input_start_date_list = []
+        input_end_date_list = []
+        
         for start_idx in range(0, len(df) - self.seq_len - self.output_horizon + 1):
             end_idx = start_idx + self.seq_len
             seq_x = df.iloc[start_idx:end_idx][['Year','Month','Day','Timestep','Weekday','Load']].values
             seq_y = df.iloc[end_idx:end_idx+self.output_horizon]['Load'].values
             X_list.append(seq_x)
             y_list.append(seq_y)
+            input_start_date_list.append(df.index[start_idx])
+            input_end_date_list.append(df.index[end_idx-1])
+           
         X = torch.tensor(np.array(X_list), dtype=torch.float32)
         y = torch.tensor(np.array(y_list), dtype=torch.float32)
+
+        self.input_start_dates = np.array(input_start_date_list, dtype='datetime64[ns]')
+        self.input_end_dates = np.array(input_end_date_list, dtype='datetime64[ns]')
+
+        # print("seq x size:", X.shape)
+        # print("seq y size:", y.shape)
+        # print("input_start_dates length:", len(self.input_start_dates))
+        # print("input_end_dates length:", len(self.input_end_dates))
+
+        # input(f"\n{YELLOW}Press Enter to continue...{RESET}")
+        
         return X, y
 
     def __len__(self):

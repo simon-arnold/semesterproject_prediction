@@ -2,6 +2,8 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
+from data_processing.EnergyDataset import EnergyDataset
+from sklearn.preprocessing import MinMaxScaler
 
 RED = '\033[91m'
 GREEN = '\033[92m'
@@ -246,14 +248,14 @@ def plot_test_data_overview(test_loader):
     return all_targets
 
 
-def plot_multiple_predictions_at_date(model, df_test, start_date = None, n_examples=5, seq_len=192, output_horizon=16, scaler=None, device="cpu"):
+def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date = None, n_examples=5, seq_len=192, output_horizon=16, device="cpu"):
     """
     Plot multiple predictions starting at a given date, spaced 12 hours (half day) apart.
     
     Args:
         model: Trained model
         df_test: Test dataframe
-        start_date: Starting date string (e.g., '2018-08-31') or datetime object
+        start_date: Last Date of the Input Sequence.
         n_examples: Number of predictions to plot (each 12 hours apart)
         seq_len: Sequence length for input
         output_horizon: Prediction horizon
@@ -268,9 +270,9 @@ def plot_multiple_predictions_at_date(model, df_test, start_date = None, n_examp
     
     # Handle start_date
     if start_date is None:
+        
         # Use earliest possible date (need seq_len history)
-        closest_idx = seq_len
-        actual_start = df_test.index[closest_idx]
+        actual_start = test_set.input_end_dates[0]
         print(f"   No start date provided. Using earliest possible date: {actual_start}")
         print(f"   Generating {n_examples} predictions spaced 12 hours apart...")
     else:
@@ -278,88 +280,88 @@ def plot_multiple_predictions_at_date(model, df_test, start_date = None, n_examp
 
         # Convert to datetime if string
         if isinstance(start_date, str):
-            start_date = pd.to_datetime(start_date)
+            start_date = np.datetime64(start_date)
         
-        # Find starting index
-        if start_date not in df_test.index:
-            closest_idx = df_test.index.get_indexer([start_date], method='nearest')[0]
-            actual_start = df_test.index[closest_idx]
+        if start_date not in test_set.input_end_dates:
+            closest_idx = np.argmin(np.abs(test_set.input_end_dates - start_date))
+            actual_start = test_set.input_end_dates[closest_idx]
             print(f"Exact date not found. Using closest date: {actual_start}")
         else:
             actual_start = start_date
-            closest_idx = df_test.index.get_loc(actual_start)
-    
-    # Check if we have enough data
-    last_needed_idx = closest_idx + (n_examples - 1) * spacing_timesteps + output_horizon
-    if closest_idx < seq_len:
-        print(f" Error: Not enough history. Need {seq_len} timesteps before {actual_start}")
-        return
-    if last_needed_idx > len(df_test):
-        print(f" Error: Not enough data for {n_examples} predictions")
-        print(f"  Try reducing n_examples or choosing an earlier start date")
-        return
-    
-    
+            closest_idx = np.argmin(np.abs(test_set.input_end_dates - actual_start))
+
     
     for i in range(n_examples):
         pred_start_idx = closest_idx + i * spacing_timesteps
         
         # Extract sequences
-        start_idx = pred_start_idx - seq_len
-        end_idx = pred_start_idx
-        future_idx = pred_start_idx + output_horizon
-        
-        input_data = df_test.iloc[start_idx:end_idx]
-        target_data = df_test.iloc[end_idx:future_idx]
-        pred_start_time = df_test.index[pred_start_idx]
+        input_data = test_set.X[pred_start_idx]
+        target_data = test_set.y[pred_start_idx]
+        pred_start_time = test_set.input_end_dates[pred_start_idx]
         
         print(f"   [{i+1}/{n_examples}] Prediction at {pred_start_time}")
         
-        # Normalize
-        if scaler is not None:
-            input_normalized = scaler.transform(input_data.values)
-            target_normalized = scaler.transform(target_data.values)
-        else:
-            input_normalized = input_data.values
-            target_normalized = target_data.values
+        # Normalize - I think this is not needed as data is already normalized
+        # if scaler is not None:
+        #     input_normalized = scaler.transform(input_data.values)
+        #     target_normalized = scaler.transform(target_data.values)
+        # else:
+        #     input_normalized = input_data.values
+        #     target_normalized = target_data.values
         
-
-        X = torch.FloatTensor(input_normalized).unsqueeze(0).to(device)
+        X = input_data.unsqueeze(0).to(device)
         
         # Get prediction
         model.eval()
         with torch.no_grad():
             y_pred = model(X)
-            pred_normalized = y_pred.cpu().numpy()[0]
+            pred_normalized = y_pred.cpu().numpy()
         
-        # Denormalize
-        if scaler is not None:
-            pred_full = np.zeros((len(pred_normalized), input_data.shape[1]))
-            pred_full[:, -1] = pred_normalized
-            pred_denormalized = scaler.inverse_transform(pred_full)[:, -1]
-        else:
-            pred_denormalized = pred_normalized
+        # Denormalize predictions, inputs, and targets
+        n_features = test_set.scaler.data_min_.shape[0]  # Should be 6
         
+        # 1. Denormalize predictions
+        pred_full = np.zeros((len(pred_normalized[0]), n_features))
+        pred_full[:, -1] = pred_normalized[0]  # Fill last column (Load) with predictions
+        pred_denormalized = test_set.scaler.inverse_transform(pred_full)[:, -1]
+        
+        # 2. Denormalize input sequence
+        input_full = np.zeros((len(test_set.X[pred_start_idx]), n_features))
+        input_full[:, -1] = test_set.X[pred_start_idx][:, -1].cpu().numpy()  # Extract Load column
+        input_load_denormalized = test_set.scaler.inverse_transform(input_full)[:, -1]
+        
+        # 3. Denormalize target sequence
+        target_full = np.zeros((len(test_set.y[pred_start_idx]), n_features))
+        target_full[:, -1] = test_set.y[pred_start_idx].cpu().numpy()  # Extract Load values
+        target_load_denormalized = test_set.scaler.inverse_transform(target_full)[:, -1]
+               
         # Plot
         plt.figure(figsize=(16, 6))
         
-        # Get Load column
-        input_load = input_data['Load'].values if 'Load' in input_data.columns else input_data.iloc[:, -1].values
-        target_load = target_data['Load'].values if 'Load' in target_data.columns else target_data.iloc[:, -1].values
+        # Use denormalized Load values for plotting
+        input_load = input_load_denormalized
+        target_load = target_load_denormalized
         
-        # Create time axis
-        input_times = input_data.index
-        target_times = target_data.index
+        # Create time axis using dates from dataset
+        input_start_date = test_set.input_start_dates[pred_start_idx]
+        input_end_date = test_set.input_end_dates[pred_start_idx]
+        
+        # Create timesteps (assuming 15-minute intervals)
+        input_times = pd.date_range(start=input_start_date, end=input_end_date, periods=len(input_load))
+        target_times = pd.date_range(start=pred_start_time+pd.Timedelta(minutes=15), periods=len(target_load), freq='15min')
         
         # Plot
         plt.plot(input_times, input_load, 'b-', label='Input Sequence (Historical)', linewidth=1.5, alpha=0.8)
         plt.plot(target_times, target_load, 'g-o', label='Ground Truth', linewidth=2, markersize=4)
         plt.plot(target_times, pred_denormalized, 'r--x', label='Prediction', linewidth=2, markersize=5)
-        plt.axvline(x=pred_start_time, color='gray', linestyle=':', linewidth=2, alpha=0.5, label='Prediction Start')
+        plt.axvline(x=pred_start_time+pd.Timedelta(minutes=15), color='gray', linestyle=':', linewidth=2, alpha=0.5, label='Prediction Start')
         
         plt.xlabel('Time', fontsize=12)
         plt.ylabel('Load [kW]', fontsize=12)
-        plt.title(f'Prediction {i+1}/{n_examples} - Starting at {pred_start_time.strftime("%Y-%m-%d %H:%M")}', 
+        
+        # Convert numpy.datetime64 to pandas Timestamp for strftime
+        pred_start_time_pd = pd.Timestamp(pred_start_time+pd.Timedelta(minutes=15))
+        plt.title(f'Prediction {i+1}/{n_examples} - Starting at {pred_start_time_pd.strftime("%Y-%m-%d %H:%M")}', 
                   fontsize=14, fontweight='bold')
         plt.legend(fontsize=11, loc='best')
         plt.grid(True, alpha=0.3)
