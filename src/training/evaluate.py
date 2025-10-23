@@ -150,7 +150,7 @@ def plot_raw_dataframe(df, title="Test Data"):
         plt.tight_layout()
         plt.show()
 
-    print(f"{GREEN}Train/data/test plot generated!{RESET}")
+    print(f"{GREEN}Train/val/test plot generated!{RESET}")
 
 
 def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date = None, 
