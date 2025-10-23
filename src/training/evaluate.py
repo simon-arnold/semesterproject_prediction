@@ -65,7 +65,7 @@ def plot_raw_dataframe(df, title="Test Data"):
         df: pandas DataFrame with time series data, or tuple of (df_train, df_val, df_test)
         title: Plot title
     """
-    # Check if we have multiple dataframes
+
     if isinstance(df, tuple) and len(df) == 3:
         df_train, df_val, df_test = df
 
@@ -74,14 +74,12 @@ def plot_raw_dataframe(df, title="Test Data"):
         print(f"   Val:   {len(df_val)} samples ({df_val.index[0]} to {df_val.index[-1]})")
         print(f"   Test:  {len(df_test)} samples ({df_test.index[0]} to {df_test.index[-1]})")
         
-        # Check for Load column
         if 'Load' not in df_train.columns:
             print(f"Warning: 'Load' column not found. Using first column")
             load_col = df_train.columns[0]
         else:
             load_col = 'Load'
-        
-        # Create figure
+
         fig, axes = plt.subplots(3, 1, figsize=(20, 12), sharex=False)
         
         datasets = [
@@ -96,7 +94,7 @@ def plot_raw_dataframe(df, title="Test Data"):
             axes[i].set_title(f"{label} Dataset ({len(data)} samples)", fontsize=12, fontweight='bold')
             axes[i].grid(True, alpha=0.3)
             
-            # Statistics
+
             mean_val = data[load_col].mean()
             std_val = data[load_col].std()
             min_val = data[load_col].min()
@@ -247,7 +245,6 @@ def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date
     else:
         print(f"   Generating {n_examples} predictions starting from {start_date}, spaced 8 hours apart...")
 
-        # Convert to datetime if string
         if isinstance(start_date, str):
             start_date = np.datetime64(start_date) - np.timedelta64(15, 'm')
         else:
@@ -268,20 +265,12 @@ def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date
     for i in range(n_examples):
         pred_start_idx = closest_idx + i * spacing_timesteps
         
-        # Extract sequences
         input_data = test_set.X[pred_start_idx]
         target_data = test_set.y[pred_start_idx]
         pred_start_time = test_set.input_end_dates[pred_start_idx]
         
         print(f"   [{i+1}/{n_examples}] Prediction at {pred_start_time+np.timedelta64(15, 'm')}")
         
-        # Normalize - I think this is not needed as data is already normalized
-        # if scaler is not None:
-        #     input_normalized = scaler.transform(input_data.values)
-        #     target_normalized = scaler.transform(target_data.values)
-        # else:
-        #     input_normalized = input_data.values
-        #     target_normalized = target_data.values
         
         X = input_data.unsqueeze(0).to(device)
         
@@ -292,39 +281,33 @@ def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date
             pred_normalized = y_pred.cpu().numpy()
         
         # Denormalize predictions, inputs, and targets
-        n_features = test_set.scaler.data_min_.shape[0]  # Should be 6
+        n_features = test_set.scaler.data_min_.shape[0] 
         
-        # 1. Denormalize predictions
         pred_full = np.zeros((len(pred_normalized[0]), n_features))
-        pred_full[:, -1] = pred_normalized[0]  # Fill last column (Load) with predictions
+        pred_full[:, -1] = pred_normalized[0]  
         pred_denormalized = test_set.scaler.inverse_transform(pred_full)[:, -1]
         
-        # 2. Denormalize input sequence
         input_full = np.zeros((len(test_set.X[pred_start_idx]), n_features))
-        input_full[:, -1] = test_set.X[pred_start_idx][:, -1].cpu().numpy()  # Extract Load column
+        input_full[:, -1] = test_set.X[pred_start_idx][:, -1].cpu().numpy()
         input_load_denormalized = test_set.scaler.inverse_transform(input_full)[:, -1]
         
-        # 3. Denormalize target sequence
         target_full = np.zeros((len(test_set.y[pred_start_idx]), n_features))
-        target_full[:, -1] = test_set.y[pred_start_idx].cpu().numpy()  # Extract Load values
+        target_full[:, -1] = test_set.y[pred_start_idx].cpu().numpy()  
         target_load_denormalized = test_set.scaler.inverse_transform(target_full)[:, -1]
                
         # Plot
         plt.figure(figsize=(16, 6))
         
-        # Use denormalized Load values for plotting
         input_load = input_load_denormalized
         target_load = target_load_denormalized
         
-        # Create time axis using dates from dataset
         input_start_date = test_set.input_start_dates[pred_start_idx]
         input_end_date = test_set.input_end_dates[pred_start_idx]
         
-        # Create timesteps (assuming 15-minute intervals)
+
         input_times = pd.date_range(start=input_start_date, end=input_end_date, periods=len(input_load))
         target_times = pd.date_range(start=pred_start_time+pd.Timedelta(minutes=15), periods=len(target_load), freq='15min')
         
-        # Plot
         plt.plot(input_times, input_load, 'b-', label='Input Sequence (Historical)', linewidth=1.5, alpha=0.8)
         plt.plot(target_times, target_load, 'g-o', label='Ground Truth', linewidth=2, markersize=4)
         plt.plot(target_times, pred_denormalized, 'r--x', label='Prediction', linewidth=2, markersize=5)
@@ -333,7 +316,6 @@ def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date
         plt.xlabel('Time', fontsize=12)
         plt.ylabel('Load [kW]', fontsize=12)
         
-        # Convert numpy.datetime64 to pandas Timestamp for strftime
         pred_start_time_pd = pd.Timestamp(pred_start_time+pd.Timedelta(minutes=15))
         plt.title(f'Prediction {i+1}/{n_examples} - Starting at {pred_start_time_pd.strftime("%Y-%m-%d %H:%M")}', 
                   fontsize=14, fontweight='bold')
@@ -352,7 +334,7 @@ def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date
             
         plt.tight_layout()
         plt.show(block=False)
-        plt.pause(0.1)  # Brief pause to ensure plot displays
+        plt.pause(0.1) 
 
     print(f"{GREEN}Generated {n_examples} prediction plots!{RESET}")
 
@@ -389,10 +371,10 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
             all_targets.append(y_test.cpu().numpy())
             all_inputs.append(X_test.cpu().numpy())
 
-    # Concatenate all predictions and targets
-    all_preds = np.concatenate(all_preds, axis=0)      # Shape: (n_samples, output_horizon)
-    all_targets = np.concatenate(all_targets, axis=0)  # Shape: (n_samples, output_horizon)
-    all_inputs = np.concatenate(all_inputs, axis=0)    # Shape: (n_samples, seq_len, input_dim)
+
+    all_preds = np.concatenate(all_preds, axis=0)      
+    all_targets = np.concatenate(all_targets, axis=0) 
+    all_inputs = np.concatenate(all_inputs, axis=0)    
 
     # Sample every output_horizon-th prediction to avoid overlaps
     # Sample 0 predicts [192:208], Sample 16 predicts [208:224], Sample 32 predicts [224:240], etc.
@@ -401,12 +383,10 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
     print(f"   Total samples: {len(all_preds)}")
     print(f"   Selected samples (every {output_horizon}th): {len(selected_indices)}")
     
-    # Select only non-overlapping samples
-    selected_preds = all_preds[selected_indices]      # Shape: (n_selected, output_horizon)
-    selected_targets = all_targets[selected_indices]  # Shape: (n_selected, output_horizon)
-    selected_inputs = all_inputs[selected_indices]    # Shape: (n_selected, seq_len, input_dim)
+    selected_preds = all_preds[selected_indices]      
+    selected_targets = all_targets[selected_indices] 
+    selected_inputs = all_inputs[selected_indices]    
     
-    # Now flatten to create TRUE continuous timeline (no overlaps!)
     pred_timeline = selected_preds.flatten()
     target_timeline = selected_targets.flatten()
     
@@ -415,12 +395,11 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
     # For subsequent samples, we only use the last output_horizon timesteps to avoid overlap
     input_timeline_list = []
     
-    # First sample: use full input sequence
-    input_timeline_list.append(selected_inputs[0, :, -1])  # All seq_len timesteps, Load is last column
+    input_timeline_list.append(selected_inputs[0, :, -1])  
     
     # Subsequent samples: only use last output_horizon timesteps to continue timeline
     for i in range(1, len(selected_inputs)):
-        input_timeline_list.append(selected_inputs[i, -output_horizon:, -1])  # Load is last column
+        input_timeline_list.append(selected_inputs[i, -output_horizon:, -1])  
     
     input_timeline = np.concatenate(input_timeline_list)
     
@@ -434,15 +413,15 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
         
         # Create dummy arrays: (n_samples, n_features) with only LAST column (Load) filled
         input_dummy = np.zeros((len(input_timeline), n_features))
-        input_dummy[:, -1] = input_timeline  # Load is last column (index 5 or -1)
+        input_dummy[:, -1] = input_timeline 
         input_timeline = scaler.inverse_transform(input_dummy)[:, -1]
         
         pred_dummy = np.zeros((len(pred_timeline), n_features))
-        pred_dummy[:, -1] = pred_timeline  # Load is last column
+        pred_dummy[:, -1] = pred_timeline  
         pred_timeline = scaler.inverse_transform(pred_dummy)[:, -1]
         
         target_dummy = np.zeros((len(target_timeline), n_features))
-        target_dummy[:, -1] = target_timeline  # Load is last column
+        target_dummy[:, -1] = target_timeline  
         target_timeline = scaler.inverse_transform(target_dummy)[:, -1]
 
         input_and_target_timeline = np.concatenate([input_timeline[:seq_len], target_timeline])
@@ -455,23 +434,21 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
     print(f"   Input timesteps: {len(input_timeline)}")
     print(f"   Prediction timesteps: {len(pred_timeline)}")
     print(f"   Total timesteps: {len(input_timeline) + len(pred_timeline)}")
-    
-    # Create time axis if df_test is provided
+
     
     
     if df_test is not None:
-        # Input time indices: start from 0 in df_test
+
         input_time_indices = list(range(seq_len))
         
-        # Add continuation of input for each subsequent sample
+    
         for i in range(1, len(selected_indices)):
             sample_idx = selected_indices[i]
             start_idx = seq_len + sample_idx - output_horizon
             end_idx = seq_len + sample_idx
             if end_idx <= len(df_test):
                 input_time_indices.extend(range(start_idx, end_idx))
-        
-        # Prediction time indices
+
         pred_time_indices = []
         for i, sample_idx in enumerate(selected_indices):
             start_time_idx = seq_len + sample_idx
@@ -492,10 +469,9 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
         pred_time_axis = np.arange(len(input_and_target_axis) - len(pred_timeline), len(input_and_target_timeline))
         
         use_time_axis = False
-    
+
+
     # Create figure
-    
-    
     fig, ax = plt.subplots(figsize=(20, 6))
     
     print("input_and_target_timeline shape:", np.shape(input_and_target_timeline))
@@ -505,7 +481,6 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
         ax.plot(input_and_target_axis, input_and_target_timeline, 'b-', label='Ground Truth', alpha=0.8, linewidth=1.2)
         ax.plot(pred_time_axis, pred_timeline, 'r-', label='Predictions', alpha=0.8, linewidth=1.2)  
         ax.set_xlabel("Time", fontsize=12)
-        
         
         # Rotate x-axis labels for better readability
         plt.xticks(rotation=45, ha='right')
@@ -542,12 +517,10 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
                         color='gray', linestyle='--', linewidth=0.8, alpha=0.4)
     
     if plot_metrics:
-        # Calculate and display metrics
         mse = np.mean((pred_timeline - target_timeline) ** 2)
         mae = np.mean(np.abs(pred_timeline - target_timeline))
         rmse = np.sqrt(mse)
         
-        # Add text box with metrics
         textstr = f'MSE: {mse:.6f}\nMAE: {mae:.6f}\nRMSE: {rmse:.6f}\n(ohne Überlappungen)'
         props = dict(boxstyle='round', facecolor='lightgreen', alpha=0.8)
         ax.text(0.02, 0.98, textstr, transform=ax.transAxes, fontsize=11,
@@ -555,7 +528,7 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
         
     plt.tight_layout()
     plt.show(block=False)
-    plt.pause(0.1)  # Brief pause to ensure plot displays
+    plt.pause(0.1) 
 
     print(f"{GREEN}Full test set plot generated!{RESET}")
 

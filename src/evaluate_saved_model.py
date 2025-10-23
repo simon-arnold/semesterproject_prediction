@@ -173,7 +173,7 @@ def main():
             output_horizon=args.output_horizon,
             df_test=df_test,
             seq_len=args.seq_len,
-            scaler=scaler
+            scaler=train_set.scaler
         )
         
         
