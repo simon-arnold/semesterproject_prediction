@@ -169,11 +169,11 @@ def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date
         scaler: MinMaxScaler for normalization
         device: Device for model inference
     """
-    #TODO: Das naming mit start_date und pred_start_date stimmt nicht ganz mit dem was es wirklich ist überein. 
-    # Also die funktion macht das richtige. Aber pred_start_time und dessen index sollten ja sicher um 1 oder 
-    # 15 minuten verschoben sein zu dem letzen datum des inputs(start_time). Diese Verschiebung habe ich mit 
-    # dem 15 minuten offsett im print geregelt. In der logik aber nicht - die müsste noch angepasst werden 
-    # der Vollständigkeit zu liebe.
+    #TODO: The naming with start_date and pred_start_date does not exactly match what they actually represent.
+    # The function itself works correctly. However, pred_start_time and its index should probably be shifted by 1 or
+    # 15 minutes compared to the last date of the input (start_time). I handled this shift with the 15-minute offset in the print statement,
+    # but not in the logic – this should be adjusted for completeness.
+    # For the sake of completeness.
 
     print(f"{CYAN}Generating {n_examples} predictions from test set...{RESET}")
     
