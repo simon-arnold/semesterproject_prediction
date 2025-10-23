@@ -141,6 +141,6 @@ def train_model(model, train_loader, val_loader, n_epochs=20, lr=1e-4, device="c
     print(f"📊 TensorBoard logs saved. View with: tensorboard --logdir=runs")
 
     # Load best weights back
-    model.load_state_dict(torch.load(save_path, weights_only=True))
+    model.load_state_dict(torch.load(save_path, weights_only=True, map_location=device))
 
     return model, best_val_loss
