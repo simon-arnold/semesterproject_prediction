@@ -210,7 +210,9 @@ def plot_test_data_overview(test_loader):
     return all_targets
 
 
-def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date = None, n_examples=5, seq_len=192, output_horizon=16, device="cpu"):
+def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date = None, 
+                                      n_examples=5, seq_len=192, output_horizon=16, device="cpu", 
+                                      plot_metrics=False):
     """
     Plot multiple predictions starting at a given date, spaced 12 hours (half day) apart.
     
@@ -224,30 +226,40 @@ def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date
         scaler: MinMaxScaler for normalization
         device: Device for model inference
     """
+    #TODO: Das naming mit start_date und pred_start_date stimmt nicht ganz mit dem was es wirklich ist überein. 
+    # Also die funktion macht das richtige. Aber pred_start_time und dessen index sollten ja sicher um 1 oder 
+    # 15 minuten verschoben sein zu dem letzen datum des inputs(start_time). Diese Verschiebung habe ich mit 
+    # dem 15 minuten offsett im print geregelt. In der logik aber nicht - die müsste noch angepasst werden 
+    # der Vollständigkeit zu liebe.
 
     print(f"{CYAN}Generating {n_examples} predictions from test set...{RESET}")
     
-    # 12 hours = 48 timesteps (at 15-minute intervals)
-    spacing_timesteps = 48
+    # Generating a plot after each complete forecast horizon.
+    spacing_timesteps = output_horizon
     
     # Handle start_date
     if start_date is None:
         
         # Use earliest possible date (need seq_len history)
         actual_start = test_set.input_end_dates[0]
-        print(f"   No start date provided. Using earliest possible date: {actual_start}")
-        print(f"   Generating {n_examples} predictions spaced 12 hours apart...")
+        print(f"   No start date provided. Using earliest possible date: {actual_start+pd.Timedelta(minutes=15)}")
+        print(f"   Generating {n_examples} predictions spaced 8 hours apart...")
     else:
-        print(f"   Generating {n_examples} predictions starting from {start_date}, spaced 12 hours apart...")
+        print(f"   Generating {n_examples} predictions starting from {start_date}, spaced 8 hours apart...")
 
         # Convert to datetime if string
         if isinstance(start_date, str):
-            start_date = np.datetime64(start_date)
-        
+            start_date = np.datetime64(start_date) - np.timedelta64(15, 'm')
+        else:
+            raise NotImplementedError(
+                "Es ist nicht klar was passiert wenn start_date input kein string ist "
+                "- gilt es zu implementieren und überprüfen, vorallem mit dem 1 oder 15 min index/time offset."
+            )
+
         if start_date not in test_set.input_end_dates:
             closest_idx = np.argmin(np.abs(test_set.input_end_dates - start_date))
             actual_start = test_set.input_end_dates[closest_idx]
-            print(f"Exact date not found. Using closest date: {actual_start}")
+            print(f"{RED}Exact date not found. Using closest date: {actual_start+np.timedelta64(15, 'm')}{RESET}")
         else:
             actual_start = start_date
             closest_idx = np.argmin(np.abs(test_set.input_end_dates - actual_start))
@@ -261,7 +273,7 @@ def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date
         target_data = test_set.y[pred_start_idx]
         pred_start_time = test_set.input_end_dates[pred_start_idx]
         
-        print(f"   [{i+1}/{n_examples}] Prediction at {pred_start_time}")
+        print(f"   [{i+1}/{n_examples}] Prediction at {pred_start_time+np.timedelta64(15, 'm')}")
         
         # Normalize - I think this is not needed as data is already normalized
         # if scaler is not None:
@@ -328,15 +340,16 @@ def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date
         plt.legend(fontsize=11, loc='best')
         plt.grid(True, alpha=0.3)
         
-        # Calculate error
-        mae = np.mean(np.abs(pred_denormalized - target_load))
-        mse = np.mean((pred_denormalized - target_load) ** 2)
-        
-        textstr = f'MAE: {mae:.3f} kW\nMSE: {mse:.3f} kW²'
-        props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
-        plt.text(0.02, 0.98, textstr, transform=plt.gca().transAxes, fontsize=11,
-                 verticalalignment='top', bbox=props)
-        
+        if plot_metrics:
+            # Calculate error
+            mae = np.mean(np.abs(pred_denormalized - target_load))
+            mse = np.mean((pred_denormalized - target_load) ** 2)
+            
+            textstr = f'MAE: {mae:.3f} kW\nMSE: {mse:.3f} kW²'
+            props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
+            plt.text(0.02, 0.98, textstr, transform=plt.gca().transAxes, fontsize=11,
+                    verticalalignment='top', bbox=props)
+            
         plt.tight_layout()
         plt.show(block=False)
         plt.pause(0.1)  # Brief pause to ensure plot displays
@@ -344,7 +357,9 @@ def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date
     print(f"{GREEN}Generated {n_examples} prediction plots!{RESET}")
 
 
-def plot_full_test_set_predictions(model, test_loader, device="cpu", output_horizon=16, df_test=None, seq_len=192, scaler=None):
+def plot_full_test_set_predictions(model, test_loader, device="cpu", output_horizon=16, df_test=None, 
+                                   seq_len=192, scaler=None, plot_metrics=False, 
+                                   plot_prediction_window_indication=True):
     """
     Plottet Test-Predictions OHNE Überlappungen.
     Nimmt nur jeden output_horizon-ten Sample für eine echte kontinuierliche Timeline.
@@ -509,17 +524,35 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
     ax.legend(fontsize=11, loc='best')
     ax.grid(True, alpha=0.3)
     
-    # Calculate and display metrics
-    mse = np.mean((pred_timeline - target_timeline) ** 2)
-    mae = np.mean(np.abs(pred_timeline - target_timeline))
-    rmse = np.sqrt(mse)
     
-    # Add text box with metrics
-    textstr = f'MSE: {mse:.6f}\nMAE: {mae:.6f}\nRMSE: {rmse:.6f}\n(ohne Überlappungen)'
-    props = dict(boxstyle='round', facecolor='lightgreen', alpha=0.8)
-    ax.text(0.02, 0.98, textstr, transform=ax.transAxes, fontsize=11,
-             verticalalignment='top', bbox=props)
+    if plot_prediction_window_indication:
+        # Add vertical lines to separate prediction windows
+        # Each window starts at seq_len + i * output_horizon
+        for i in range(len(selected_preds)):
+            if use_time_axis:
+                # Use actual timestamps
+                window_start_idx = seq_len + i * output_horizon
+                if window_start_idx < len(input_and_target_axis):
+                    ax.axvline(x=input_and_target_axis[window_start_idx], 
+                            color='gray', linestyle='--', linewidth=0.8, alpha=0.4)
+            else:
+                # Use timestep indices
+                window_start_idx = seq_len + i * output_horizon
+                ax.axvline(x=window_start_idx, 
+                        color='gray', linestyle='--', linewidth=0.8, alpha=0.4)
     
+    if plot_metrics:
+        # Calculate and display metrics
+        mse = np.mean((pred_timeline - target_timeline) ** 2)
+        mae = np.mean(np.abs(pred_timeline - target_timeline))
+        rmse = np.sqrt(mse)
+        
+        # Add text box with metrics
+        textstr = f'MSE: {mse:.6f}\nMAE: {mae:.6f}\nRMSE: {rmse:.6f}\n(ohne Überlappungen)'
+        props = dict(boxstyle='round', facecolor='lightgreen', alpha=0.8)
+        ax.text(0.02, 0.98, textstr, transform=ax.transAxes, fontsize=11,
+                verticalalignment='top', bbox=props)
+        
     plt.tight_layout()
     plt.show(block=False)
     plt.pause(0.1)  # Brief pause to ensure plot displays

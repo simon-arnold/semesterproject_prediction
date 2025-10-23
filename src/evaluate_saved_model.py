@@ -117,7 +117,7 @@ def main():
                         help='Skip individual example plots (useful with --plot_full)')
     parser.add_argument('--plot_train_val_test', action='store_true',
                         help='Plot only test data without predictions (no model loading needed)')
-    parser.add_argument('--predict_at_date', type=str, default=None,
+    parser.add_argument('--predict_at_date', type=str, default=None, #Enter the date&time when the prediction should start
                         help='Make prediction starting at specific date (format: YYYY-MM-DD, e.g., 2018-08-31)')
     
     args = parser.parse_args()
