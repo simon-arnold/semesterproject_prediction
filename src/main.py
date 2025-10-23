@@ -2,7 +2,7 @@ from data_processing.EnergyDataset import EnergyDataset
 from data_processing.data_utils import load_energy_hdf_to_pandas, split_dataframe
 from models.cnn_lstm_forecaster import CNN_LSTM_Forecaster
 from training.train_loop import train_model
-from training.evaluate import evaluate_model, plot_predictions
+from training.evaluate import evaluate_model, plot_multiple_predictions_at_date
 from torch.utils.data import DataLoader
 import torch
 import os
@@ -86,7 +86,7 @@ def main():
 
     # 7️. Evaluate
     test_metrics = evaluate_model(model, test_loader, device)
-    plot_predictions(model, test_loader, device, n_examples=1)
+    plot_multiple_predictions_at_date(model=model, test_set=test_set, device=device)
 
 if __name__ == "__main__":
     main()

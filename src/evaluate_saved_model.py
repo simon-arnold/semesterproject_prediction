@@ -4,10 +4,11 @@ Evaluate a saved model on the test dataset.
 This script loads a previously trained model and evaluates it on test data.
 Can be run independently from training.
 
-Usage:
-    python src/evaluate_saved_model.py
-    python src/evaluate_saved_model.py --model_path NN_storage/NN_weights/custom_model.pth
+Example usage:
+    evaluate_saved_model.py --plot_train_val_test --plot_full --predict_at_date 2018-08-23 --n_examples 5
 """
+
+
 
 from data_processing.EnergyDataset import EnergyDataset
 from data_processing.data_utils import load_energy_hdf_to_pandas, split_dataframe
@@ -149,8 +150,8 @@ def main():
     # Plotting only data loader data
     if args.plot_train_val_test:
         plot_raw_dataframe((df_train, df_val, df_test), title="Complete Dataset")
-
     
+
     # Prediction at specific date
     # Possibly multiple predictions spaced 12 hours apart
     if not args.skip_examples:

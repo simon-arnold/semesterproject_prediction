@@ -153,72 +153,17 @@ def plot_raw_dataframe(df, title="Test Data"):
     print(f"{GREEN}Train/data/test plot generated!{RESET}")
 
 
-def plot_test_data_overview(test_loader):
-    """
-    Plots only the ground truth test data in a continuous timeline.
-    No predictions - just shows what data we're testing on.
-    
-    Args:
-        test_loader: DataLoader for test set
-    """
-    all_targets = []
-    
-    print("Loading test data for visualization...")
-    
-    for X_test, y_test in test_loader:
-        all_targets.append(y_test.cpu().numpy())
-    
-    # Concatenate all targets
-    all_targets = np.concatenate(all_targets, axis=0)  # Shape: (n_samples, output_horizon)
-    
-    # Flatten to create continuous timeline
-    target_timeline = all_targets.flatten()
-    
-    print(f"Loaded {len(all_targets)} test samples ({len(target_timeline)} timesteps total)")
-    
-    # Create figure
-    plt.figure(figsize=(20, 6))
-    
-    timesteps = np.arange(len(target_timeline))
-    
-    plt.plot(timesteps, target_timeline, 'b-', label='Test Data (Ground Truth)', alpha=0.8, linewidth=1)
-    
-    plt.xlabel("Timestep", fontsize=12)
-    plt.ylabel("Normalized Load", fontsize=12)
-    plt.title(f"Complete Test Dataset Overview ({len(all_targets)} samples, {len(target_timeline)} timesteps)", fontsize=14)
-    plt.legend(fontsize=11)
-    plt.grid(True, alpha=0.3)
-    plt.tight_layout()
-    
-    # Add statistics text box
-    mean_val = np.mean(target_timeline)
-    std_val = np.std(target_timeline)
-    min_val = np.min(target_timeline)
-    max_val = np.max(target_timeline)
-    
-    textstr = f'Mean: {mean_val:.4f}\nStd: {std_val:.4f}\nMin: {min_val:.4f}\nMax: {max_val:.4f}'
-    props = dict(boxstyle='round', facecolor='lightblue', alpha=0.8)
-    plt.text(0.02, 0.98, textstr, transform=plt.gca().transAxes, fontsize=11,
-             verticalalignment='top', bbox=props)
-    
-    plt.show()
-    
-    print(f"Test data overview plot generated!")
-    
-    return all_targets
-
-
 def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date = None, 
-                                      n_examples=5, seq_len=192, output_horizon=16, device="cpu", 
+                                      n_examples=1, seq_len=192, output_horizon=16, device="cpu", 
                                       plot_metrics=False):
     """
-    Plot multiple predictions starting at a given date, spaced 12 hours (half day) apart.
+    Plot multiple predictions starting at a given date, spaced 4 hours (half day) apart.
     
     Args:
         model: Trained model
         df_test: Test dataframe
         start_date: Last Date of the Input Sequence.
-        n_examples: Number of predictions to plot (each 12 hours apart)
+        n_examples: Number of predictions to plot (each 4 hours apart)
         seq_len: Sequence length for input
         output_horizon: Prediction horizon
         scaler: MinMaxScaler for normalization
@@ -240,10 +185,11 @@ def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date
         
         # Use earliest possible date (need seq_len history)
         actual_start = test_set.input_end_dates[0]
+        closest_idx = 0
         print(f"   No start date provided. Using earliest possible date: {actual_start+pd.Timedelta(minutes=15)}")
-        print(f"   Generating {n_examples} predictions spaced 8 hours apart...")
+        print(f"   Generating {n_examples} predictions spaced 4 hours apart...")
     else:
-        print(f"   Generating {n_examples} predictions starting from {start_date}, spaced 8 hours apart...")
+        print(f"   Generating {n_examples} predictions starting from {start_date}, spaced 4 hours apart...")
 
         if isinstance(start_date, str):
             start_date = np.datetime64(start_date) - np.timedelta64(15, 'm')
@@ -380,8 +326,8 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
     # Sample 0 predicts [192:208], Sample 16 predicts [208:224], Sample 32 predicts [224:240], etc.
     selected_indices = np.arange(0, len(all_preds), output_horizon)
     
-    print(f"   Total samples: {len(all_preds)}")
-    print(f"   Selected samples (every {output_horizon}th): {len(selected_indices)}")
+    # print(f"   Total samples: {len(all_preds)}")
+    # print(f"   Selected samples (every {output_horizon}th): {len(selected_indices)}")
     
     selected_preds = all_preds[selected_indices]      
     selected_targets = all_targets[selected_indices] 
@@ -405,7 +351,6 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
     
     # Denormalize if scaler is provided
     if scaler is not None:
-        print(f"Denormalizing data...")
         # Denormalize input, predictions, and targets
         # Scaler expects shape (n_samples, n_features=6), but we only want to denormalize load (feature 0)
         # Create dummy arrays with zeros for other features
@@ -426,14 +371,11 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
 
         input_and_target_timeline = np.concatenate([input_timeline[:seq_len], target_timeline])
 
-        print(f"   Data denormalized to original scale")
-        print(f"   Input range: [{input_timeline.min():.2f}, {input_timeline.max():.2f}]")
-        print(f"   Prediction range: [{pred_timeline.min():.2f}, {pred_timeline.max():.2f}]")
     
     print(f"Generated {len(selected_preds)} non-overlapping predictions")
-    print(f"   Input timesteps: {len(input_timeline)}")
-    print(f"   Prediction timesteps: {len(pred_timeline)}")
-    print(f"   Total timesteps: {len(input_timeline) + len(pred_timeline)}")
+    # print(f"   Input timesteps: {len(input_timeline)}")
+    # print(f"   Prediction timesteps: {len(pred_timeline)}")
+    # print(f"   Total timesteps: {len(input_timeline) + len(pred_timeline)}")
 
     
     
@@ -461,8 +403,8 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
         pred_time_axis = df_test.index[pred_time_indices[:len(pred_timeline)]]
         input_and_target_axis = np.concatenate([input_time_axis[:seq_len], pred_time_axis])
         use_time_axis = True
-        print(f"   Input time range: {input_time_axis[0]} to {input_time_axis[-1]}")
-        print(f"   Prediction time range: {pred_time_axis[0]} to {pred_time_axis[-1]}")
+        # print(f"   Input time range: {input_time_axis[0]} to {input_time_axis[-1]}")
+        # print(f"   Prediction time range: {pred_time_axis[0]} to {pred_time_axis[-1]}")
         
     else:
         input_and_target_axis = np.arange(len(input_and_target_timeline))
@@ -473,9 +415,7 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
 
     # Create figure
     fig, ax = plt.subplots(figsize=(20, 6))
-    
-    print("input_and_target_timeline shape:", np.shape(input_and_target_timeline))
-    print("pred_time_axis shape:", np.shape(pred_time_axis))
+
 
     if use_time_axis:
         ax.plot(input_and_target_axis, input_and_target_timeline, 'b-', label='Ground Truth', alpha=0.8, linewidth=1.2)
