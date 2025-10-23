@@ -1,11 +1,7 @@
-# cnn_lstm_forecaster.py
 import torch
 import torch.nn as nn
-import torch.optim as optim
 
-# -------------------------------------------------------------
-# CNN-LSTM Predictor Definition
-# -------------------------------------------------------------
+
 class CNN_LSTM_Forecaster(nn.Module):
     def __init__(self, input_dim=6, seq_len=192, output_dim=16):
         """
@@ -31,12 +27,15 @@ class CNN_LSTM_Forecaster(nn.Module):
         self.lstm_input_size = 64  # number of filters from last Conv layer
 
         # --- LSTM for temporal modeling ---
-        self.lstm = nn.LSTM(input_size=self.lstm_input_size, hidden_size=64, batch_first=True)
+        self.lstm = nn.LSTM(input_size=self.lstm_input_size, hidden_size=128, 
+                           num_layers=2, batch_first=True, dropout=0.2)
 
         # --- Fully connected layers ---
-        self.fc1 = nn.Linear(64, 32)
-        self.fc2 = nn.Linear(32, output_dim)
-        self.tanh = nn.Tanh()
+        # Use ALL lstm outputs, not just last timestep
+        self.fc1 = nn.Linear(128 * conv_out_len, 256)  # Flatten all LSTM outputs
+        self.dropout = nn.Dropout(0.3)
+        self.fc2 = nn.Linear(256, 128)
+        self.fc3 = nn.Linear(128, output_dim)
 
     def _calc_conv_output(self, seq_len):
         """Helper to compute sequence length after two Conv+Pool stacks."""
@@ -60,43 +59,15 @@ class CNN_LSTM_Forecaster(nn.Module):
 
         # LSTM processing
         lstm_out, _ = self.lstm(x)
-        x = self.tanh(lstm_out[:, -1, :])   # take last timestep
+        # lstm_out shape: [batch, seq_len', 128]
+        
+        # Use ALL timesteps, not just the last one!
+        # This preserves temporal information throughout the sequence
+        x = lstm_out.reshape(lstm_out.size(0), -1)  # Flatten: [batch, seq_len' * 128]
 
         # Fully connected layers
-        x = self.fc1(x)
-        out = self.fc2(x)
+        x = nn.functional.relu(self.fc1(x))
+        x = self.dropout(x)
+        x = nn.functional.relu(self.fc2(x))
+        out = torch.sigmoid(self.fc3(x))  # Sigmoid to constrain output to [0, 1]
         return out
-
-
-# -------------------------------------------------------------
-# Run Example
-# -------------------------------------------------------------
-if __name__ == "__main__":
-    # Parameters
-    batch_size = 8
-    seq_len = 192       # 2 days with 15-min intervals
-    n_features = 6      # Year, Month, Day, Timestep, Weekday, Load
-    output_dim = 16     # 4x4 flattened
-
-    # Dummy input data (random)
-    X = torch.randn(batch_size, seq_len, n_features)
-    y_true = torch.randn(batch_size, output_dim)
-
-    # Initialize model, loss, optimizer
-    model = CNN_LSTM_Forecaster(input_dim=n_features, seq_len=seq_len, output_dim=output_dim)
-    criterion = nn.MSELoss()
-    optimizer = optim.Adam(model.parameters(), lr=1e-3)
-
-    # Forward pass
-    y_pred = model(X)
-    loss = criterion(y_pred, y_true)
-
-    # Backward + Optimize
-    optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
-
-    # Print output
-    print(f"Input shape : {X.shape}")
-    print(f"Output shape: {y_pred.shape}")
-    print(f"Training loss: {loss.item():.6f}")
