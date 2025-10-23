@@ -195,8 +195,8 @@ def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date
             start_date = np.datetime64(start_date) - np.timedelta64(15, 'm')
         else:
             raise NotImplementedError(
-                "Es ist nicht klar was passiert wenn start_date input kein string ist "
-                "- gilt es zu implementieren und überprüfen, vorallem mit dem 1 oder 15 min index/time offset."
+                "It is not clear what happens if the start_date input is not a string "
+                "- this needs to be implemented and checked, especially regarding the 1 or 15 minute index/time offset."
             )
 
         if start_date not in test_set.input_end_dates:
