@@ -1,2 +1,16 @@
-# Ignoriere alles im data-Ordner
+# Ignore everything in the data folder
 data/
+
+# Ignore model weights and ONNX exports
+NN_weights/
+NN_storage/
+*.pth
+*.onnx
+
+# Ignore TensorBoard logs
+runs/
+
+# Ignore all __pycache__ directories
+__pycache__/
+*.py[cod]
+*$py.class
