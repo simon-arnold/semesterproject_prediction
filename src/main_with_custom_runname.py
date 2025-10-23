@@ -1,4 +1,4 @@
-# Beispiel: Wie man beschreibende Run-Namen verwendet
+# Example: How to use descriptive run names
 
 from data_processing.EnergyDataset import EnergyDataset
 from data_processing.data_utils import load_energy_hdf_to_pandas, split_dataframe
