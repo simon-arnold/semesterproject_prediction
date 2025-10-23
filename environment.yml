@@ -225,5 +225,5 @@ dependencies:
       - zenodo-get==2.0.0
 prefix: /home/simon/programs/miniconda3/envs/sp_project
 
-# Hinzugefügt durch: conda env export > environment.yml
-# Kann später einfach mit conda env create -f environment.yml aktiviert werden
+# Added by: conda env export > environment.yml
+# Can later be activated easily with conda env create -f environment.yml
