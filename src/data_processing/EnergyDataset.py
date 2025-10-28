@@ -17,29 +17,47 @@ RESET = '\033[0m'
 class EnergyDataset(Dataset):
     def __init__(self, df, seq_len=192, output_horizon=16, normalize=True, scaler=None):
         """
-        df: pandas DataFrame with columns ['Year','Month','Day','Timestep','Weekday','Load']
+        df: pandas DataFrame with columns:
+            - Metadata (stored but NOT used for model): 'Month', 'Day', 'Timestep', 'Weekday'
+            - Model input features: 'Year', 'tod_sin', 'tod_cos', 'weekday_sin', 'weekday_cos', 
+                                   'doy_sin', 'doy_cos', 'Load'
         seq_len: length of the input sequence
         output_horizon: length of the output (e.g. 16 for 4x4)
-        normalize: whether to normalize the data
+        normalize: whether to normalize the data (applies only to Year and Load)
         scaler: pre-fitted scaler (if None, will fit a new one - use for training data only!)
         """
         self.seq_len = seq_len
         self.output_horizon = output_horizon
 
         df = df.copy()
+        
+        # Store full dataframe for metadata access (used in plotting/evaluation)
+        self._df_full = df.copy()
 
-        # Optional normalization
+        # Define which columns go into the model (8 features total)
+        # Order: Year, cyclic features (6), Load (last)
+        self.model_feature_cols = ['Year', 'tod_sin', 'tod_cos', 'weekday_sin', 
+                                    'weekday_cos', 'doy_sin', 'doy_cos', 'Load']
+        
+        # Check if required columns exist in DataFrame
+        missing_cols = set(self.model_feature_cols) - set(df.columns)
+        if missing_cols:
+            raise ValueError(f"❌ Missing required columns in DataFrame: {missing_cols}\n"
+                           f"   Available columns: {list(df.columns)}\n"
+                           f"   Required columns: {self.model_feature_cols}")
+        
+        # Optional normalization (only for Year and Load)
+        # Cyclic features (tod_sin/cos, weekday_sin/cos, doy_sin/cos) are already in [-1,1]
         self.scaler = scaler
+        cols_to_normalize = ['Year', 'Load']
         if normalize:
             if self.scaler is None:
                 # Fit new scaler (only for training data!)
                 self.scaler = MinMaxScaler()
-                df[['Year','Month','Day','Timestep','Weekday','Load']] = self.scaler.fit_transform(
-                    df[['Year','Month','Day','Timestep','Weekday','Load']])
+                df[cols_to_normalize] = self.scaler.fit_transform(df[cols_to_normalize])
             else:
                 # Use pre-fitted scaler (for validation/test data)
-                df[['Year','Month','Day','Timestep','Weekday','Load']] = self.scaler.transform(
-                    df[['Year','Month','Day','Timestep','Weekday','Load']])
+                df[cols_to_normalize] = self.scaler.transform(df[cols_to_normalize])
 
         self.X, self.y = self.create_sequences(df)
 
@@ -51,7 +69,8 @@ class EnergyDataset(Dataset):
         
         for start_idx in range(0, len(df) - self.seq_len - self.output_horizon + 1):
             end_idx = start_idx + self.seq_len
-            seq_x = df.iloc[start_idx:end_idx][['Year','Month','Day','Timestep','Weekday','Load']].values
+            # Use only model features: Year + 6 cyclic + Load = 8 features
+            seq_x = df.iloc[start_idx:end_idx][self.model_feature_cols].values
             seq_y = df.iloc[end_idx:end_idx+self.output_horizon]['Load'].values
             X_list.append(seq_x)
             y_list.append(seq_y)

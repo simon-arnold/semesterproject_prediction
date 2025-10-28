@@ -7,6 +7,9 @@ from torch.utils.data import DataLoader
 import torch
 import os
 
+YELLOW = '\033[93m'
+RESET = '\033[0m'
+
 store_onnx = True  
 
 def main():
@@ -41,7 +44,13 @@ def main():
 
     # 5️. Model + Training
     training_epochs = 1*10
-    model = CNN_LSTM_Forecaster(input_dim=6, seq_len=seq_len, output_dim=output_horizon).to(device)
+    # input_dim = 8 features:
+    #   - Year (normalized)
+    #   - tod_sin, tod_cos (time of day, cyclic)
+    #   - weekday_sin, weekday_cos (day of week, cyclic)
+    #   - doy_sin, doy_cos (day of year, cyclic)
+    #   - Load (normalized, last feature)
+    model = CNN_LSTM_Forecaster(input_dim=8, seq_len=seq_len, output_dim=output_horizon).to(device)
     model, best_val_loss = train_model(model, train_loader, val_loader, n_epochs=training_epochs, lr=1e-4, device=device)
 
     # 6️. Save model (PyTorch format)
@@ -63,7 +72,8 @@ def main():
         model.eval()
         
         # Create dummy input with correct shape [batch_size, seq_len, num_features]
-        dummy_input = torch.randn(1, seq_len, 6).to(device)
+        # num_features = 8 (Year + 6 cyclic + Load)
+        dummy_input = torch.randn(1, seq_len, 8).to(device)
         
         # Export to ONNX
         torch.onnx.export(
@@ -81,12 +91,16 @@ def main():
             }
         )
         print(f"✅ Model exported as ONNX: {onnx_path}")
-        print(f"   Input shape: [batch_size, {seq_len}, 6]")
+        print(f"   Input shape: [batch_size, {seq_len}, 8]  (8 features: Year + 6 cyclic + Load)")
         print(f"   Output shape: [batch_size, {output_horizon}]")
 
     # 7️. Evaluate
     test_metrics = evaluate_model(model, test_loader, device)
     plot_multiple_predictions_at_date(model=model, test_set=test_set, device=device)
+    
+        
+    # Wait for user input before closing
+    input(f"\n{YELLOW}Press Enter to exit...{RESET}")
 
 if __name__ == "__main__":
     main()

@@ -80,8 +80,9 @@ def load_model(model_path, seq_len=192, output_horizon=16, device='cpu'):
     print(f"{CYAN} Loading model from {model_path}...{RESET}")
     
     # Initialize model architecture
+    # input_dim = 8 (Year + 6 cyclic + Load)
     model = CNN_LSTM_Forecaster(
-        input_dim=6, 
+        input_dim=8, 
         seq_len=seq_len, 
         output_dim=output_horizon
     ).to(device)

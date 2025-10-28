@@ -32,7 +32,8 @@ def main():
     test_loader  = DataLoader(test_set, batch_size=batch_size)
 
     # 5️⃣ Model + Training mit BESCHREIBENDEM RUN-NAMEN
-    model = CNN_LSTM_Forecaster(input_dim=6, seq_len=seq_len, output_dim=output_horizon).to(device)
+    # input_dim = 8: Year + 6 cyclic features + Load
+    model = CNN_LSTM_Forecaster(input_dim=8, seq_len=seq_len, output_dim=output_horizon).to(device)
     
     # ========================================
     # OPTION 1: Beschreibender Name

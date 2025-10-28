@@ -3,11 +3,14 @@ import torch.nn as nn
 
 
 class CNN_LSTM_Forecaster(nn.Module):
-    def __init__(self, input_dim=6, seq_len=192, output_dim=16):
+    def __init__(self, input_dim=8, seq_len=192, output_dim=16):
         """
         CNN-LSTM model for short-term energy load forecasting.
         Args:
             input_dim (int): Number of input features per timestep.
+                           Default 8 = Year (normalized)
+                                     + 6 cyclic features (tod_sin/cos, weekday_sin/cos, doy_sin/cos)
+                                     + Load (normalized, last feature)
             seq_len (int): Length of input sequence (timesteps).
             output_dim (int): Length of output vector (forecast horizon).
         """
