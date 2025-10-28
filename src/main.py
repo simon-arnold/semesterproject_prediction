@@ -46,6 +46,7 @@ def main():
     training_epochs = 1*6
     use_lr_scheduler = False  # Set to False for constant learning rate
     
+    
     # input_dim = 8 features:
     #   - Year (normalized)
     #   - tod_sin, tod_cos (time of day, cyclic)
