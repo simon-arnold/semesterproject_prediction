@@ -36,14 +36,16 @@ def main():
     print(f"   Max values: {train_set.scaler.data_max_}")
 
     # 4️. DataLoaders
-    batch_size = 32
+    batch_size = 32 # standard: 32
     
     train_loader = DataLoader(train_set, batch_size=batch_size, shuffle=True, num_workers=4, pin_memory=True)
     val_loader   = DataLoader(val_set, batch_size=batch_size)
     test_loader  = DataLoader(test_set, batch_size=batch_size)
 
     # 5️. Model + Training
-    training_epochs = 1*10
+    training_epochs = 1*6
+    use_lr_scheduler = False  # Set to False for constant learning rate
+    
     # input_dim = 8 features:
     #   - Year (normalized)
     #   - tod_sin, tod_cos (time of day, cyclic)
@@ -51,7 +53,13 @@ def main():
     #   - doy_sin, doy_cos (day of year, cyclic)
     #   - Load (normalized, last feature)
     model = CNN_LSTM_Forecaster(input_dim=8, seq_len=seq_len, output_dim=output_horizon).to(device)
-    model, best_val_loss = train_model(model, train_loader, val_loader, n_epochs=training_epochs, lr=1e-4, device=device)
+    model, best_val_loss = train_model(
+        model, train_loader, val_loader, 
+        n_epochs=training_epochs, 
+        lr=1e-3, #standard: 1e-4
+        device=device,
+        use_scheduler=use_lr_scheduler
+    )
 
     # 6️. Save model (PyTorch format)
     save_dir = "NN_storage/NN_weights"
