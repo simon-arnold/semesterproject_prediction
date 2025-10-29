@@ -135,7 +135,13 @@ def main():
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"  Using device: {device}\n")
+    print(f"  Using device: {device}")
+    
+    # Display encoding mode
+    if USE_CYCLIC_ENCODING:
+        print(f"  {YELLOW}🔄 Feature Encoding: CYCLIC (8 features: Year + 6 cyclic + Load){RESET}\n")
+    else:
+        print(f"  {YELLOW}📊 Feature Encoding: RAW (6 features: Year, Month, Day, Weekday, Timestep, Load){RESET}\n")
 
     test_loader, scaler, train_set, test_set, df_train, df_val, df_test = load_test_data(
         args.data_path,

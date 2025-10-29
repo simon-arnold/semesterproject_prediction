@@ -20,6 +20,12 @@ use_cyclic_encoding = False  # True: use cyclic features (sin/cos), False: use r
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
+    
+    # Display encoding mode
+    if use_cyclic_encoding:
+        print(f"{YELLOW}🔄 Feature Encoding: CYCLIC (8 features: Year + 6 cyclic + Load){RESET}")
+    else:
+        print(f"{YELLOW}📊 Feature Encoding: RAW (6 features: Year, Month, Day, Weekday, Timestep, Load){RESET}")
 
     # 1️. Load Data
     df = load_energy_hdf_to_pandas("data/data/dfA_300s.hdf", plot_data=False, use_cyclic_encoding=use_cyclic_encoding)
