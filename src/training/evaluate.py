@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 from data_processing.EnergyDataset import EnergyDataset
 from sklearn.preprocessing import MinMaxScaler
+import time
 
 RED = '\033[91m'
 GREEN = '\033[92m'
@@ -227,18 +228,20 @@ def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date
             pred_normalized = y_pred.cpu().numpy()
         
         # Denormalize predictions, inputs, and targets
-        n_features = test_set.scaler.data_min_.shape[0] 
+        # Scaler was fitted on ['Year', 'Load'] only (2 features)
+        # We need to denormalize Load (last column of scaler)
+        n_features = test_set.scaler.data_min_.shape[0]  # Should be 2 (Year, Load)
         
         pred_full = np.zeros((len(pred_normalized[0]), n_features))
-        pred_full[:, -1] = pred_normalized[0]  
+        pred_full[:, -1] = pred_normalized[0]  # Fill Load column
         pred_denormalized = test_set.scaler.inverse_transform(pred_full)[:, -1]
         
         input_full = np.zeros((len(test_set.X[pred_start_idx]), n_features))
-        input_full[:, -1] = test_set.X[pred_start_idx][:, -1].cpu().numpy()
+        input_full[:, -1] = test_set.X[pred_start_idx][:, -1].cpu().numpy()  # Fill Load column
         input_load_denormalized = test_set.scaler.inverse_transform(input_full)[:, -1]
         
         target_full = np.zeros((len(test_set.y[pred_start_idx]), n_features))
-        target_full[:, -1] = test_set.y[pred_start_idx].cpu().numpy()  
+        target_full[:, -1] = test_set.y[pred_start_idx].cpu().numpy()  # Fill Load column
         target_load_denormalized = test_set.scaler.inverse_transform(target_full)[:, -1]
                
         # Plot
@@ -308,6 +311,9 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
 
     print(f"{CYAN}Generating Plot with predictions over the full test set...{RESET}")
 
+    # Start timing
+    start_time = time.time()
+
     with torch.no_grad():
         for X_test, y_test in test_loader:
             X_test, y_test = X_test.to(device), y_test.to(device)
@@ -317,10 +323,24 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
             all_targets.append(y_test.cpu().numpy())
             all_inputs.append(X_test.cpu().numpy())
 
+    # End timing
+    inference_time = time.time() - start_time
+
 
     all_preds = np.concatenate(all_preds, axis=0)      
     all_targets = np.concatenate(all_targets, axis=0) 
     all_inputs = np.concatenate(all_inputs, axis=0)    
+
+    # Print timing information
+    num_samples = len(all_preds)
+    samples_per_second = num_samples / inference_time if inference_time > 0 else 0
+    
+    print(f"{GREEN}⏱️  Prediction Performance:{RESET}")
+    print(f"   Total prediction samples: {num_samples} (each predicts {output_horizon} timesteps ahead)")
+    print(f"   Prediction time: {inference_time:.4f} seconds")
+    print(f"   Throughput: {samples_per_second:.1f} samples/second")
+    print(f"   Avg time per sample: {inference_time/num_samples*1000:.2f} ms")
+    print()
 
     # Sample every output_horizon-th prediction to avoid overlaps
     # Sample 0 predicts [192:208], Sample 16 predicts [208:224], Sample 32 predicts [224:240], etc.
@@ -351,22 +371,22 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
     
     # Denormalize if scaler is provided
     if scaler is not None:
-        # Denormalize input, predictions, and targets
-        # Scaler expects shape (n_samples, n_features=6), but we only want to denormalize load (feature 0)
-        # Create dummy arrays with zeros for other features
-        n_features = scaler.data_min_.shape[0]  # Should be 6
+        # Denormalize if scaler is provided
+        # Scaler was fitted on ['Year', 'Load'] only (2 features)
+        # We need to denormalize Load (last column of scaler)
+        n_features = scaler.data_min_.shape[0]  # Should be 2 (Year, Load)
         
         # Create dummy arrays: (n_samples, n_features) with only LAST column (Load) filled
         input_dummy = np.zeros((len(input_timeline), n_features))
-        input_dummy[:, -1] = input_timeline 
+        input_dummy[:, -1] = input_timeline  # Fill Load column
         input_timeline = scaler.inverse_transform(input_dummy)[:, -1]
         
         pred_dummy = np.zeros((len(pred_timeline), n_features))
-        pred_dummy[:, -1] = pred_timeline  
+        pred_dummy[:, -1] = pred_timeline  # Fill Load column
         pred_timeline = scaler.inverse_transform(pred_dummy)[:, -1]
         
         target_dummy = np.zeros((len(target_timeline), n_features))
-        target_dummy[:, -1] = target_timeline  
+        target_dummy[:, -1] = target_timeline  # Fill Load column
         target_timeline = scaler.inverse_transform(target_dummy)[:, -1]
 
         input_and_target_timeline = np.concatenate([input_timeline[:seq_len], target_timeline])
