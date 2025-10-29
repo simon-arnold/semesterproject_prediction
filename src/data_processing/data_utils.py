@@ -3,13 +3,23 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 
-def load_energy_hdf_to_pandas(h5_file_path, plot_data=True, use_time_axis=True):
+def load_energy_hdf_to_pandas(h5_file_path, plot_data=True, use_time_axis=True, use_cyclic_encoding=True):
     """
     Load the HDF5 file and return a DataFrame with smoothed 15-minute timesteps.
     Computes 'Load' = A_total_cons_power - A_sauna_power.
     Each 15-minute timestep is the mean of ±1 step (rolling window of 3).
-    Returns only the columns:
-    Year, Month, Day, Timestep, Weekday, Load
+    
+    Args:
+        h5_file_path: Path to the HDF5 file
+        plot_data: Whether to plot the data
+        use_time_axis: Whether to use time axis in plots
+        use_cyclic_encoding: If True, adds cyclic sin/cos features (tod_sin/cos, weekday_sin/cos, doy_sin/cos)
+                            If False, uses raw features (Month, Day, Weekday, Timestep)
+    
+    Returns:
+        DataFrame with columns:
+        - Always: Year, Month, Day, Timestep, Weekday, Load
+        - If use_cyclic_encoding=True: also tod_sin/cos, weekday_sin/cos, doy_sin/cos
     """
     df_raw = pd.read_hdf(h5_file_path, key='data')
 
@@ -35,35 +45,35 @@ def load_energy_hdf_to_pandas(h5_file_path, plot_data=True, use_time_axis=True):
     dt_index = pd.DatetimeIndex(df_raw.index)
     df_features = pd.DataFrame(index=dt_index)
     
-    # Store metadata columns (for plotting/evaluation, NOT for model input)
+    # Store base time features (always included)
     df_features['Month'] = dt_index.month
     df_features['Day'] = dt_index.day
     df_features['Timestep'] = (dt_index.hour * 60 + dt_index.minute) // 15 
     df_features['Weekday'] = dt_index.weekday   # 0=Mon ... 6=Sun
     
-    # --- Add cyclic encodings for time features ---
-    # Time-of-day (Timestep 0-95, period = 96 = 24*4 timesteps per day)
-    P_day = 96
-    df_features['tod_sin'] = np.sin(2 * np.pi * df_features['Timestep'] / P_day)
-    df_features['tod_cos'] = np.cos(2 * np.pi * df_features['Timestep'] / P_day)
+    # --- Conditionally add cyclic encodings ---
+    if use_cyclic_encoding:
+        # Time-of-day (Timestep 0-95, period = 96 = 24*4 timesteps per day)
+        P_day = 96
+        df_features['tod_sin'] = np.sin(2 * np.pi * df_features['Timestep'] / P_day)
+        df_features['tod_cos'] = np.cos(2 * np.pi * df_features['Timestep'] / P_day)
+        
+        # Day-of-week (Weekday 0-6, period = 7)
+        P_week = 7
+        df_features['weekday_sin'] = np.sin(2 * np.pi * df_features['Weekday'] / P_week)
+        df_features['weekday_cos'] = np.cos(2 * np.pi * df_features['Weekday'] / P_week)
+        
+        # Day-of-year (for seasonal patterns, period = 365)
+        df_features['day_of_year'] = dt_index.dayofyear
+        P_year = 365
+        df_features['doy_sin'] = np.sin(2 * np.pi * df_features['day_of_year'] / P_year)
+        df_features['doy_cos'] = np.cos(2 * np.pi * df_features['day_of_year'] / P_year)
     
-    # Day-of-week (Weekday 0-6, period = 7)
-    P_week = 7
-    df_features['weekday_sin'] = np.sin(2 * np.pi * df_features['Weekday'] / P_week)
-    df_features['weekday_cos'] = np.cos(2 * np.pi * df_features['Weekday'] / P_week)
-    
-    # Day-of-year (for seasonal patterns, period = 365)
-    df_features['day_of_year'] = dt_index.dayofyear
-    P_year = 365
-    df_features['doy_sin'] = np.sin(2 * np.pi * df_features['day_of_year'] / P_year)
-    df_features['doy_cos'] = np.cos(2 * np.pi * df_features['day_of_year'] / P_year)
-    
-    #Sanity chech that Timestep, Weekday, day_of_year dont exeed their bounds
+    #Sanity check that Timestep, Weekday don't exceed their bounds
     assert df_features['Timestep'].max() <= 95, "Timestep exceeds 95"
     assert df_features['Weekday'].max() <= 6, "Weekday exceeds 6"
-    assert df_features['day_of_year'].max() <= 366, "day_of_year exceeds 366"
     
-    # Model input features (Year and cyclic features come first, Load at the end)
+    # Add Year and Load
     df_features['Year'] = dt_index.year
     df_features['Load'] = load_smooth.values
 

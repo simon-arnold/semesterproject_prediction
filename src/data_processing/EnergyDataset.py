@@ -15,29 +15,38 @@ RESET = '\033[0m'
 # Dataset class
 # -----------------------------
 class EnergyDataset(Dataset):
-    def __init__(self, df, seq_len=192, output_horizon=16, normalize=True, scaler=None):
+    def __init__(self, df, seq_len=192, output_horizon=16, normalize=True, scaler=None, use_cyclic_encoding=True):
         """
         df: pandas DataFrame with columns:
-            - Metadata (stored but NOT used for model): 'Month', 'Day', 'Timestep', 'Weekday'
-            - Model input features: 'Year', 'tod_sin', 'tod_cos', 'weekday_sin', 'weekday_cos', 
-                                   'doy_sin', 'doy_cos', 'Load'
+            - Always present: Year, Month, Day, Timestep, Weekday, Load
+            - If use_cyclic_encoding=True: tod_sin/cos, weekday_sin/cos, doy_sin/cos
         seq_len: length of the input sequence
         output_horizon: length of the output (e.g. 16 for 4x4)
-        normalize: whether to normalize the data (applies only to Year and Load)
+        normalize: whether to normalize the data
         scaler: pre-fitted scaler (if None, will fit a new one - use for training data only!)
+        use_cyclic_encoding: If True, uses cyclic sin/cos features. If False, uses raw time features.
         """
         self.seq_len = seq_len
         self.output_horizon = output_horizon
+        self.use_cyclic_encoding = use_cyclic_encoding
 
         df = df.copy()
         
         # Store full dataframe for metadata access (used in plotting/evaluation)
         self._df_full = df.copy()
 
-        # Define which columns go into the model (8 features total)
-        # Order: Year, cyclic features (6), Load (last)
-        self.model_feature_cols = ['Year', 'tod_sin', 'tod_cos', 'weekday_sin', 
-                                    'weekday_cos', 'doy_sin', 'doy_cos', 'Load']
+        # Define which columns go into the model based on encoding method
+        if use_cyclic_encoding:
+            # 8 features: Year + 6 cyclic (tod_sin/cos, weekday_sin/cos, doy_sin/cos) + Load
+            self.model_feature_cols = ['Year', 'tod_sin', 'tod_cos', 'weekday_sin', 
+                                        'weekday_cos', 'doy_sin', 'doy_cos', 'Load']
+            # Only Year and Load need normalization (cyclic features are already in [-1,1])
+            cols_to_normalize = ['Year', 'Load']
+        else:
+            # 6 features: Year, Month, Day, Weekday, Timestep, Load
+            self.model_feature_cols = ['Year', 'Month', 'Day', 'Weekday', 'Timestep', 'Load']
+            # All non-Load features need normalization in this case
+            cols_to_normalize = ['Year', 'Month', 'Day', 'Weekday', 'Timestep', 'Load']
         
         # Check if required columns exist in DataFrame
         missing_cols = set(self.model_feature_cols) - set(df.columns)
@@ -46,10 +55,8 @@ class EnergyDataset(Dataset):
                            f"   Available columns: {list(df.columns)}\n"
                            f"   Required columns: {self.model_feature_cols}")
         
-        # Optional normalization (only for Year and Load)
-        # Cyclic features (tod_sin/cos, weekday_sin/cos, doy_sin/cos) are already in [-1,1]
+        # Optional normalization
         self.scaler = scaler
-        cols_to_normalize = ['Year', 'Load']
         if normalize:
             if self.scaler is None:
                 # Fit new scaler (only for training data!)
@@ -69,7 +76,7 @@ class EnergyDataset(Dataset):
         
         for start_idx in range(0, len(df) - self.seq_len - self.output_horizon + 1):
             end_idx = start_idx + self.seq_len
-            # Use only model features: Year + 6 cyclic + Load = 8 features
+            # Use only model features (8 if cyclic, 6 if not)
             seq_x = df.iloc[start_idx:end_idx][self.model_feature_cols].values
             seq_y = df.iloc[end_idx:end_idx+self.output_horizon]['Load'].values
             X_list.append(seq_x)

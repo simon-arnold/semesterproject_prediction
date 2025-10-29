@@ -228,9 +228,11 @@ def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date
             pred_normalized = y_pred.cpu().numpy()
         
         # Denormalize predictions, inputs, and targets
-        # Scaler was fitted on ['Year', 'Load'] only (2 features)
-        # We need to denormalize Load (last column of scaler)
-        n_features = test_set.scaler.data_min_.shape[0]  # Should be 2 (Year, Load)
+        # Scaler fitted on different features depending on mode:
+        # - Cyclic mode: ['Year', 'Load'] (2 features)
+        # - Raw mode: ['Year', 'Month', 'Day', 'Weekday', 'Timestep', 'Load'] (6 features)
+        # Load is always the LAST column in the scaler
+        n_features = test_set.scaler.data_min_.shape[0]
         
         pred_full = np.zeros((len(pred_normalized[0]), n_features))
         pred_full[:, -1] = pred_normalized[0]  # Fill Load column
@@ -372,9 +374,11 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
     # Denormalize if scaler is provided
     if scaler is not None:
         # Denormalize if scaler is provided
-        # Scaler was fitted on ['Year', 'Load'] only (2 features)
-        # We need to denormalize Load (last column of scaler)
-        n_features = scaler.data_min_.shape[0]  # Should be 2 (Year, Load)
+        # Scaler fitted on different features depending on mode:
+        # - Cyclic mode: ['Year', 'Load'] (2 features)
+        # - Raw mode: ['Year', 'Month', 'Day', 'Weekday', 'Timestep', 'Load'] (6 features)
+        # Load is always the LAST column in the scaler
+        n_features = scaler.data_min_.shape[0]
         
         # Create dummy arrays: (n_samples, n_features) with only LAST column (Load) filled
         input_dummy = np.zeros((len(input_timeline), n_features))

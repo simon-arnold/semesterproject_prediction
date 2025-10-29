@@ -64,7 +64,8 @@ def train_model(model, train_loader, val_loader, n_epochs=20, lr=1e-4, device="c
     
     # Log model architecture
     try:
-        # Get input_dim from the model's first conv layer (8 features: Year + 6 cyclic + Load)
+        # Get input_dim dynamically from the model's first conv layer
+        # Works for both cyclic (8 features) and raw (6 features) modes
         input_dim = model.conv1.in_channels
         dummy_input = torch.randn(1, train_loader.dataset.seq_len, input_dim).to(device)
         writer.add_graph(model, dummy_input)

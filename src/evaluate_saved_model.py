@@ -27,6 +27,12 @@ BLUE = '\033[94m'
 CYAN = '\033[96m'
 RESET = '\033[0m'
 
+# ========================================
+# CONFIGURATION: Must match training setup
+# ========================================
+# Set this to match the encoding used when training the model!
+USE_CYCLIC_ENCODING = False  # True: 8 features (cyclic), False: 6 features (raw)
+
 
 def load_test_data(data_path="data/data/dfA_300s.hdf", seq_len=192, output_horizon=16):
     """
@@ -40,14 +46,14 @@ def load_test_data(data_path="data/data/dfA_300s.hdf", seq_len=192, output_horiz
         df_test: Raw test dataframe
     """
     print(f"{CYAN} Loading data from {data_path}...{RESET}")
-    df = load_energy_hdf_to_pandas(data_path, plot_data=False)
+    df = load_energy_hdf_to_pandas(data_path, plot_data=False, use_cyclic_encoding=USE_CYCLIC_ENCODING)
     
     # Split (same splits as training)
     df_train, df_val, df_test = split_dataframe(df, 0.7, 0.15, 0.15)
     
     # Create datasets with scaler from training data
-    train_set = EnergyDataset(df_train, seq_len, output_horizon, normalize=True, scaler=None)
-    test_set = EnergyDataset(df_test, seq_len, output_horizon, normalize=True, scaler=train_set.scaler)
+    train_set = EnergyDataset(df_train, seq_len, output_horizon, normalize=True, scaler=None, use_cyclic_encoding=USE_CYCLIC_ENCODING)
+    test_set = EnergyDataset(df_test, seq_len, output_horizon, normalize=True, scaler=train_set.scaler, use_cyclic_encoding=USE_CYCLIC_ENCODING)
     
     print(f"-- Scaler info (fitted on training data): --")
     print(f"   Min: {train_set.scaler.data_min_}")
@@ -80,9 +86,13 @@ def load_model(model_path, seq_len=192, output_horizon=16, device='cpu'):
     print(f"{CYAN} Loading model from {model_path}...{RESET}")
     
     # Initialize model architecture
-    # input_dim = 8 (Year + 6 cyclic + Load)
+    # IMPORTANT: input_dim must match the model's training configuration!
+    # Use 8 for cyclic encoding (Year + 6 cyclic + Load)
+    # Use 6 for raw features (Year, Month, Day, Weekday, Timestep, Load)
+    input_dim = 8 if USE_CYCLIC_ENCODING else 6
+    
     model = CNN_LSTM_Forecaster(
-        input_dim=8, 
+        input_dim=input_dim, 
         seq_len=seq_len, 
         output_dim=output_horizon
     ).to(device)
