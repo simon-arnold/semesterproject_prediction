@@ -31,7 +31,7 @@ RESET = '\033[0m'
 # CONFIGURATION: Must match training setup
 # ========================================
 # Set this to match the encoding used when training the model!
-USE_CYCLIC_ENCODING = False  # True: 8 features (cyclic), False: 6 features (raw)
+USE_CYCLIC_ENCODING = True  # True: 8 features (cyclic), False: 6 features (raw)
 
 
 def load_test_data(data_path="data/data/dfA_300s.hdf", seq_len=192, output_horizon=16):

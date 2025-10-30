@@ -64,13 +64,13 @@ class CNN_LSTM_Forecaster(nn.Module):
         self.lstm_input_size = self.conv3.out_channels  # number of filters from last Conv layer
 
         # --- LSTM for temporal modeling ---
-        self.lstm = nn.LSTM(input_size=self.lstm_input_size, hidden_size=128, 
-                           num_layers=3, batch_first=True, dropout=0.2)
+        self.lstm = nn.LSTM(input_size=self.lstm_input_size, hidden_size=3*128, 
+                           num_layers=1, batch_first=True, dropout=0.2)
 
         # --- Fully connected layers ---
         # Use ALL lstm outputs, not just last timestep
         # self.fc1 = nn.Linear(128 * conv_out_len, 256)  # Flatten all LSTM outputs
-        self.fc1 = nn.Linear(128, 256)
+        self.fc1 = nn.Linear(self.lstm.hidden_size, 256)
         self.dropout = nn.Dropout(0.3)
         self.fc2 = nn.Linear(256, 128)
         self.fc3 = nn.Linear(128, output_dim)
