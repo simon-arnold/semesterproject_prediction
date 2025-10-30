@@ -191,7 +191,9 @@ def main():
             output_horizon=args.output_horizon,
             df_test=df_test,
             seq_len=args.seq_len,
-            scaler=train_set.scaler
+            scaler=train_set.scaler, 
+            plot_integral_difference=True, 
+            integral_reset_interval=6
         )
         
         

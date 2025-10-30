@@ -91,7 +91,7 @@ def plot_raw_dataframe(df, title="Test Data"):
         
         for i, (data, label, color) in enumerate(datasets):
             axes[i].plot(data.index, data[load_col].values, linewidth=0.8, color=color, alpha=0.8)
-            axes[i].set_ylabel(f'{load_col} [kW]', fontsize=11)
+            axes[i].set_ylabel(f'{load_col} [W]', fontsize=11)
             axes[i].set_title(f"{label} Dataset ({len(data)} samples)", fontsize=12, fontweight='bold')
             axes[i].grid(True, alpha=0.3)
             
@@ -101,7 +101,7 @@ def plot_raw_dataframe(df, title="Test Data"):
             min_val = data[load_col].min()
             max_val = data[load_col].max()
             
-            textstr = f'Mean: {mean_val:.3f} kW | Std: {std_val:.3f} kW | Min: {min_val:.3f} kW | Max: {max_val:.3f} kW'
+            textstr = f'Mean: {mean_val:.1f} W | Std: {std_val:.1f} W | Min: {min_val:.1f} W | Max: {max_val:.1f} W'
             props = dict(boxstyle='round', facecolor='wheat', alpha=0.7)
             axes[i].text(0.02, 0.98, textstr, transform=axes[i].transAxes, fontsize=10,
                          verticalalignment='top', bbox=props)
@@ -132,7 +132,7 @@ def plot_raw_dataframe(df, title="Test Data"):
         plt.figure(figsize=(20, 6))
         
         plt.plot(df.index, df[load_col].values, linewidth=0.8, color='blue', alpha=0.8)
-        plt.ylabel(f'{load_col} [kW]', fontsize=12)
+        plt.ylabel(f'{load_col} [W]', fontsize=12)
         plt.xlabel('Time', fontsize=12)
         plt.title(f"{title} - {load_col} Time Series ({len(df)} samples)", fontsize=14, fontweight='bold')
         plt.grid(True, alpha=0.3)
@@ -143,7 +143,7 @@ def plot_raw_dataframe(df, title="Test Data"):
         min_val = df[load_col].min()
         max_val = df[load_col].max()
         
-        textstr = f'Mean: {mean_val:.3f} kW\nStd: {std_val:.3f} kW\nMin: {min_val:.3f} kW\nMax: {max_val:.3f} kW'
+        textstr = f'Mean: {mean_val:.1f} W\nStd: {std_val:.1f} W\nMin: {min_val:.1f} W\nMax: {max_val:.1f} W'
         props = dict(boxstyle='round', facecolor='lightblue', alpha=0.8)
         plt.text(0.02, 0.98, textstr, transform=plt.gca().transAxes, fontsize=11,
                  verticalalignment='top', bbox=props)
@@ -265,7 +265,7 @@ def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date
         plt.axvline(x=pred_start_time+pd.Timedelta(minutes=15), color='gray', linestyle=':', linewidth=2, alpha=0.5, label='Prediction Start')
         
         plt.xlabel('Time', fontsize=12)
-        plt.ylabel('Load [kW]', fontsize=12)
+        plt.ylabel('Load [W]', fontsize=12)
         
         pred_start_time_pd = pd.Timestamp(pred_start_time+pd.Timedelta(minutes=15))
         plt.title(f'Prediction {i+1}/{n_examples} - Starting at {pred_start_time_pd.strftime("%Y-%m-%d %H:%M")}', 
@@ -278,7 +278,7 @@ def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date
             mae = np.mean(np.abs(pred_denormalized - target_load))
             mse = np.mean((pred_denormalized - target_load) ** 2)
             
-            textstr = f'MAE: {mae:.3f} kW\nMSE: {mse:.3f} kW²'
+            textstr = f'MAE: {mae:.1f} W\nMSE: {mse:.1f} W²'
             props = dict(boxstyle='round', facecolor='wheat', alpha=0.8)
             plt.text(0.02, 0.98, textstr, transform=plt.gca().transAxes, fontsize=11,
                     verticalalignment='top', bbox=props)
@@ -292,7 +292,9 @@ def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date
 
 def plot_full_test_set_predictions(model, test_loader, device="cpu", output_horizon=16, df_test=None, 
                                    seq_len=192, scaler=None, plot_metrics=False, 
-                                   plot_prediction_window_indication=True):
+                                   plot_prediction_window_indication=True,
+                                   plot_integral_difference=False,
+                                   integral_reset_interval=1):
     """
     Plottet Test-Predictions OHNE Überlappungen.
     Nimmt nur jeden output_horizon-ten Sample für eine echte kontinuierliche Timeline.
@@ -305,6 +307,10 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
         df_test: Original test dataframe (optional) - für echte Zeitachse
         seq_len: Sequence length (nur relevant wenn df_test gegeben)
         scaler: Scaler to denormalize data
+        plot_metrics: Whether to display metrics in the plot
+        plot_prediction_window_indication: Whether to show vertical lines between prediction windows
+        plot_integral_difference: Whether to plot cumulative integral difference between prediction and ground truth
+        integral_reset_interval: After how many prediction horizons to reset the integral to 0 (default: 1)
     """
     model.eval()
     all_preds = []
@@ -437,8 +443,11 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
         use_time_axis = False
 
 
-    # Create figure
-    fig, ax = plt.subplots(figsize=(20, 6))
+    # Create figure - with subplots if integral difference is requested
+    if plot_integral_difference:
+        fig, (ax, ax_int) = plt.subplots(2, 1, figsize=(20, 12), sharex=True)
+    else:
+        fig, ax = plt.subplots(figsize=(20, 6))
 
 
     if use_time_axis:
@@ -456,7 +465,7 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
         
     
     # Y-axis label depends on whether data is normalized
-    ylabel = "Load [kW]" if scaler is not None else "Normalized Load"
+    ylabel = "Load [W]" if scaler is not None else "Normalized Load"
     ax.set_ylabel(ylabel, fontsize=12)
     ax.set_title(f"Full Test Set: Input + Non-Overlapping Predictions ({len(selected_preds)} samples, {len(input_timeline)} input + {len(pred_timeline)} prediction steps)", 
               fontsize=14, fontweight='bold')
@@ -490,10 +499,93 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
         ax.text(0.02, 0.98, textstr, transform=ax.transAxes, fontsize=11,
                 verticalalignment='top', bbox=props)
         
+    # Plot cumulative integral difference if requested (as second subplot)
+    if plot_integral_difference:
+        print(f"{CYAN}Generating cumulative integral difference plot...{RESET}")
+        
+        # Compute cumulative integrals with resets
+        # Each timestep is 15 minutes = 0.25 hours, so multiply by 0.25 to get Wh
+        timestep_hours = 0.25  # 15 minutes in hours
+        
+        cumsum_pred = np.zeros_like(pred_timeline)
+        cumsum_target = np.zeros_like(target_timeline)
+        
+        reset_length = output_horizon * integral_reset_interval
+        
+        for i in range(len(pred_timeline)):
+            # Reset to 0 at the beginning of each reset interval
+            if i % reset_length == 0:
+                cumsum_pred[i] = pred_timeline[i] * timestep_hours
+                cumsum_target[i] = target_timeline[i] * timestep_hours
+            else:
+                cumsum_pred[i] = cumsum_pred[i-1] + pred_timeline[i] * timestep_hours
+                cumsum_target[i] = cumsum_target[i-1] + target_timeline[i] * timestep_hours
+        
+        # Compute difference of integrals
+        integral_diff = cumsum_pred - cumsum_target
+        
+        # Plot in second subplot (ax_int already created above)
+        
+        if use_time_axis:
+            ax_int.plot(pred_time_axis, integral_diff, 'purple', label='Cumulative Integral Difference', 
+                       alpha=0.8, linewidth=1.5)
+            ax_int.set_xlabel("Time", fontsize=12)
+        else:
+            ax_int.plot(pred_time_axis, integral_diff, 'purple', label='Cumulative Integral Difference', 
+                       alpha=0.8, linewidth=1.5)
+            ax_int.set_xlabel("Timestep (kontinuierliche Timeline - OHNE Überlappungen)", fontsize=12)
+        
+        # Add zero reference line
+        ax_int.axhline(y=0, color='black', linestyle='-', linewidth=0.8, alpha=0.5)
+        
+        # Add vertical lines at reset points
+        for i in range(0, len(pred_timeline), reset_length):
+            if use_time_axis:
+                if i < len(pred_time_axis):
+                    ax_int.axvline(x=pred_time_axis[i], color='red', linestyle='--', 
+                                  linewidth=1.0, alpha=0.3)
+            else:
+                ax_int.axvline(x=pred_time_axis[i], color='red', linestyle='--', 
+                              linewidth=1.0, alpha=0.3)
+        
+        ylabel_int = "Cumulative Integral Difference [Wh]" if scaler is not None else "Cumulative Integral Difference"
+        ax_int.set_ylabel(ylabel_int, fontsize=12)
+        
+        reset_info = f"(Reset every {integral_reset_interval} prediction horizon{'s' if integral_reset_interval > 1 else ''})"
+        ax_int.set_title(f"Cumulative Integral Difference: ∫(Prediction - Ground Truth) {reset_info}", 
+                        fontsize=14, fontweight='bold')
+        ax_int.legend(fontsize=11, loc='best')
+        ax_int.grid(True, alpha=0.3)
+        
+        # Calculate average integral difference at the end of each prediction horizon
+        # Collect values at every output_horizon-th timestep
+        horizon_end_indices = np.arange(output_horizon - 1, len(integral_diff), output_horizon)
+        horizon_end_values = integral_diff[horizon_end_indices]
+        avg_horizon_end_diff = np.mean(np.abs(horizon_end_values))
+        
+        # Add statistics
+        mean_abs_diff = np.mean(np.abs(integral_diff))
+        max_abs_diff = np.max(np.abs(integral_diff))
+        
+        textstr_int = (f'Mean |Integral Diff|: {mean_abs_diff:.2f} Wh\n'
+                      f'Max |Integral Diff|: {max_abs_diff:.2f} Wh\n'
+                      f'Avg |Diff| at Horizon End: {avg_horizon_end_diff:.2f} Wh')
+        props_int = dict(boxstyle='round', facecolor='lavender', alpha=0.8)
+        ax_int.text(0.02, 0.98, textstr_int, transform=ax_int.transAxes, fontsize=11,
+                   verticalalignment='top', bbox=props_int)
+        
+        print(f"{GREEN}Cumulative integral difference plot added!{RESET}")
+    
+    # Show the combined figure (either single plot or both plots)
     plt.tight_layout()
+    
+    # Rotate x-axis labels for better readability (only if time axis and not already rotated)
+    if use_time_axis:
+        plt.setp(fig.axes[-1].xaxis.get_majorticklabels(), rotation=45, ha='right')
+    
     plt.show(block=False)
-    plt.pause(0.1) 
-
+    plt.pause(0.1)
+    
     print(f"{GREEN}Full test set plot generated!{RESET}")
 
     return selected_preds, selected_targets
