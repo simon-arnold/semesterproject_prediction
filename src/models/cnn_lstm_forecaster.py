@@ -61,10 +61,11 @@ class CNN_LSTM_Forecaster(nn.Module):
 
         # --- Compute LSTM input size after Conv/Pool ---
         conv_out_len = self._calc_conv_output(seq_len)
+        print(f"convolution out channels: {self.conv3.out_channels}, conv_out_len: {conv_out_len}")
         self.lstm_input_size = self.conv3.out_channels  # number of filters from last Conv layer
 
         # --- LSTM for temporal modeling ---
-        self.lstm = nn.LSTM(input_size=self.lstm_input_size, hidden_size=3*128, 
+        self.lstm = nn.LSTM(input_size=self.lstm_input_size, hidden_size=2*128, 
                            num_layers=1, batch_first=True, dropout=0.2)
 
         # --- Fully connected layers ---
@@ -100,6 +101,7 @@ class CNN_LSTM_Forecaster(nn.Module):
         # L = pool1d_out(L, kernel_size=2, stride=2)             # pool2
         # L = conv1d_out(L, kernel_size=5, stride=1, padding=0)  # conv3
         # L = pool1d_out(L, kernel_size=2, stride=2)             # pool3
+        
 
         return L
 
