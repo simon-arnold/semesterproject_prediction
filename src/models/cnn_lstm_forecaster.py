@@ -70,10 +70,9 @@ class CNN_LSTM_Forecaster(nn.Module):
         # --- Fully connected layers ---
         # Use ALL lstm outputs, not just last timestep
         # self.fc1 = nn.Linear(128 * conv_out_len, 256)  # Flatten all LSTM outputs
-        self.fc1 = nn.Linear(self.lstm.hidden_size, 256)
+        self.fc1 = nn.Linear(self.lstm.hidden_size, self.lstm.hidden_size // 2)
         self.dropout = nn.Dropout(0.3)
-        self.fc2 = nn.Linear(256, 128)
-        self.fc3 = nn.Linear(128, output_dim)
+        self.fc3 = nn.Linear(self.lstm.hidden_size // 2, output_dim)
 
     def _calc_conv_output(self, seq_len):
         """Helper to compute sequence length after three Conv+Pool stacks."""
@@ -133,7 +132,7 @@ class CNN_LSTM_Forecaster(nn.Module):
         # Fully connected layers
         x = nn.functional.relu(self.fc1(x))
         x = self.dropout(x)
-        x = nn.functional.relu(self.fc2(x))
+        #x = nn.functional.relu(self.fc2(x))
         # out = self.fc3(x)  # Output layer
-        out = torch.sigmoid(self.fc3(x))  # Sigmoid to constrain output to [0, 1]
+        out = (self.fc3(x))  # Sigmoid to constrain output to [0, 1]
         return out
