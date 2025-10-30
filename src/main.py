@@ -4,6 +4,7 @@ from models.cnn_lstm_forecaster import CNN_LSTM_Forecaster
 from training.train_loop import train_model
 from training.evaluate import evaluate_model, plot_multiple_predictions_at_date
 from torch.utils.data import DataLoader
+from torchinfo import summary
 import torch
 import os
 
@@ -15,7 +16,7 @@ store_onnx = True
 # ========================================
 # CONFIGURATION: Cyclic Encoding
 # ========================================
-use_cyclic_encoding = False  # True: use cyclic features (sin/cos), False: use raw features (Month, Day, Weekday, Timestep)
+use_cyclic_encoding = True  # True: use cyclic features (sin/cos), False: use raw features (Month, Day, Weekday, Timestep)
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -72,6 +73,10 @@ def main():
     print(f"   Input features ({input_dim}): {feature_description}")
     
     model = CNN_LSTM_Forecaster(input_dim=input_dim, seq_len=seq_len, output_dim=output_horizon).to(device)
+    input_size = (batch_size, seq_len, input_dim)
+    print("\n🧠 Model Summary:")
+    summary(model, input_size=input_size, device=str(device))
+    
     model, best_val_loss = train_model(
         model, train_loader, val_loader, 
         n_epochs=training_epochs, 

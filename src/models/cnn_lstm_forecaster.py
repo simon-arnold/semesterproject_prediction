@@ -17,36 +17,90 @@ class CNN_LSTM_Forecaster(nn.Module):
         super().__init__()
 
         # --- Convolutional feature extractor ---
-        self.conv1 = nn.Conv1d(in_channels=input_dim, out_channels=64, kernel_size=2, stride=1)
+        self.conv1 = nn.Conv1d(
+            in_channels=input_dim,
+            out_channels=32,
+            kernel_size=5,
+            stride=1,
+            padding=2,
+        )
         self.relu1 = nn.ReLU()
-        self.pool1 = nn.MaxPool1d(kernel_size=2, stride=2)
 
-        self.conv2 = nn.Conv1d(in_channels=64, out_channels=64, kernel_size=2, stride=1)
+        self.conv2 = nn.Conv1d(
+            in_channels=32,
+            out_channels=64,
+            kernel_size=5,
+            stride=1,
+            padding=2,
+        )
         self.relu2 = nn.ReLU()
         self.pool2 = nn.MaxPool1d(kernel_size=2, stride=2)
 
+        self.conv3 = nn.Conv1d(
+            in_channels=64,
+            out_channels=128,
+            kernel_size=3,
+            stride=1,
+            padding=1,
+        )
+        self.relu3 = nn.ReLU()
+        self.pool3 = nn.MaxPool1d(kernel_size=2, stride=2)
+
+        # Previous configuration (64-100-128 filters without padding, each with pooling)
+        # self.conv1 = nn.Conv1d(in_channels=input_dim, out_channels=64, kernel_size=5, stride=1)
+        # self.relu1 = nn.ReLU()
+        # self.pool1 = nn.MaxPool1d(kernel_size=2, stride=2)
+        
+        # self.conv2 = nn.Conv1d(in_channels=64, out_channels=100, kernel_size=5, stride=1)
+        # self.relu2 = nn.ReLU()
+        # self.pool2 = nn.MaxPool1d(kernel_size=2, stride=2)
+        
+        # self.conv3 = nn.Conv1d(in_channels=100, out_channels=128, kernel_size=5, stride=1)
+        # self.relu3 = nn.ReLU()
+        # self.pool3 = nn.MaxPool1d(kernel_size=2, stride=2)
+
         # --- Compute LSTM input size after Conv/Pool ---
         conv_out_len = self._calc_conv_output(seq_len)
-        self.lstm_input_size = 64  # number of filters from last Conv layer
+        self.lstm_input_size = self.conv3.out_channels  # number of filters from last Conv layer
 
         # --- LSTM for temporal modeling ---
         self.lstm = nn.LSTM(input_size=self.lstm_input_size, hidden_size=128, 
-                           num_layers=2, batch_first=True, dropout=0.2)
+                           num_layers=3, batch_first=True, dropout=0.2)
 
         # --- Fully connected layers ---
         # Use ALL lstm outputs, not just last timestep
-        self.fc1 = nn.Linear(128 * conv_out_len, 256)  # Flatten all LSTM outputs
+        # self.fc1 = nn.Linear(128 * conv_out_len, 256)  # Flatten all LSTM outputs
+        self.fc1 = nn.Linear(128, 256)
         self.dropout = nn.Dropout(0.3)
         self.fc2 = nn.Linear(256, 128)
         self.fc3 = nn.Linear(128, output_dim)
 
     def _calc_conv_output(self, seq_len):
-        """Helper to compute sequence length after two Conv+Pool stacks."""
+        """Helper to compute sequence length after three Conv+Pool stacks."""
+        def conv1d_out(length, kernel_size, stride=1, padding=0, dilation=1):
+            return ((length + 2 * padding - dilation * (kernel_size - 1) - 1) // stride) + 1
+
+        def pool1d_out(length, kernel_size, stride=None, padding=0, dilation=1):
+            stride = stride or kernel_size
+            return ((length + 2 * padding - dilation * (kernel_size - 1) - 1) // stride) + 1
+
         L = seq_len
-        L = (L - 2 + 1)  # conv1
-        L = L // 2       # pool1
-        L = (L - 2 + 1)  # conv2
-        L = L // 2       # pool2
+        
+        #current configuration
+        L = conv1d_out(L, kernel_size=5, stride=1, padding=2)  # conv1
+        L = conv1d_out(L, kernel_size=5, stride=1, padding=2)  # conv2
+        L = pool1d_out(L, kernel_size=2, stride=2)
+        L = conv1d_out(L, kernel_size=3, stride=1, padding=1)  # conv3
+        L = pool1d_out(L, kernel_size=2, stride=2)
+        
+        #previous configuration
+        # L = conv1d_out(L, kernel_size=5, stride=1, padding=0)  # conv1
+        # L = pool1d_out(L, kernel_size=2, stride=2)             # pool1
+        # L = conv1d_out(L, kernel_size=5, stride=1, padding=0)  # conv2
+        # L = pool1d_out(L, kernel_size=2, stride=2)             # pool2
+        # L = conv1d_out(L, kernel_size=5, stride=1, padding=0)  # conv3
+        # L = pool1d_out(L, kernel_size=2, stride=2)             # pool3
+
         return L
 
     def forward(self, x):
@@ -54,8 +108,15 @@ class CNN_LSTM_Forecaster(nn.Module):
         x = x.permute(0, 2, 1)              # -> [batch, features, seq_len]
 
         # CNN feature extraction
-        x = self.pool1(self.relu1(self.conv1(x)))
+        #current configuration
+        x = self.relu1(self.conv1(x))
         x = self.pool2(self.relu2(self.conv2(x)))
+        x = self.pool3(self.relu3(self.conv3(x)))
+        
+        # previous configuration
+        # x = self.pool1(self.relu1(self.conv1(x)))
+        # x = self.pool2(self.relu2(self.conv2(x)))
+        # x = self.pool3(self.relu3(self.conv3(x)))
 
         # Prepare for LSTM: [batch, seq_len', features']
         x = x.permute(0, 2, 1)
@@ -66,11 +127,13 @@ class CNN_LSTM_Forecaster(nn.Module):
         
         # Use ALL timesteps, not just the last one!
         # This preserves temporal information throughout the sequence
-        x = lstm_out.reshape(lstm_out.size(0), -1)  # Flatten: [batch, seq_len' * 128]
+        # x = lstm_out.reshape(lstm_out.size(0), -1)  # Flatten: [batch, seq_len' * 128]
+        x = lstm_out[:, -1, :]  # Take only the last timestep output: [batch, 128]
 
         # Fully connected layers
         x = nn.functional.relu(self.fc1(x))
         x = self.dropout(x)
         x = nn.functional.relu(self.fc2(x))
+        # out = self.fc3(x)  # Output layer
         out = torch.sigmoid(self.fc3(x))  # Sigmoid to constrain output to [0, 1]
         return out

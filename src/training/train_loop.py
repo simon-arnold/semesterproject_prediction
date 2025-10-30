@@ -9,7 +9,8 @@ from datetime import datetime
 
 
 def train_model(model, train_loader, val_loader, n_epochs=20, lr=1e-4, device="cpu", 
-                save_path="NN_storage/NN_weights/best_model.pth", log_dir=None, use_scheduler=True):
+                save_path="NN_storage/NN_weights/best_model.pth", log_dir=None, use_scheduler=True,
+                weight_decay=0.0):
     """
     Trains a PyTorch model using given DataLoaders with TensorBoard logging.
     Optionally includes ReduceLROnPlateau scheduler for automatic learning rate adjustment.
@@ -23,15 +24,16 @@ def train_model(model, train_loader, val_loader, n_epochs=20, lr=1e-4, device="c
         device: 'cuda' or 'cpu'
         save_path: path to save the best model
         log_dir: TensorBoard log directory (None = auto-generate with timestamp)
-        use_scheduler: if True, uses ReduceLROnPlateau to adjust LR (default: True)
+    use_scheduler: if True, uses ReduceLROnPlateau to adjust LR (default: True)
+    weight_decay: L2 regularization coefficient for the optimizer
 
     Returns:
         model (with best weights)
         best_val_loss (float)
     """
 
-    optimizer = torch.optim.Adam(model.parameters(), lr=lr)
-    criterion = nn.MSELoss()  # Mean Squared Error - better for regression
+    optimizer = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=weight_decay)
+    criterion = nn.MSELoss()  # Mean Absolute Error - better for regression
     
     # Learning Rate Scheduler (optional): Reduces LR when validation loss plateaus
     scheduler = None
@@ -47,6 +49,8 @@ def train_model(model, train_loader, val_loader, n_epochs=20, lr=1e-4, device="c
         print("📉 LR Scheduler enabled (ReduceLROnPlateau: factor=0.5, patience=5)")
     else:
         print("📊 LR Scheduler disabled (constant learning rate)")
+
+    print(f"⚖️ Weight decay (L2): {weight_decay:.2e}")
 
     best_val_loss = float('inf')
     train_losses, val_losses = [], []
@@ -74,7 +78,7 @@ def train_model(model, train_loader, val_loader, n_epochs=20, lr=1e-4, device="c
     
     # Log hyperparameters
     writer.add_text('Hyperparameters', 
-                    f'lr={lr}, n_epochs={n_epochs}, batch_size={train_loader.batch_size}')
+                    f'lr={lr}, n_epochs={n_epochs}, batch_size={train_loader.batch_size}, weight_decay={weight_decay}')
     
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
@@ -154,7 +158,8 @@ def train_model(model, train_loader, val_loader, n_epochs=20, lr=1e-4, device="c
         {
             'lr': lr,
             'batch_size': train_loader.batch_size,
-            'n_epochs': n_epochs
+            'n_epochs': n_epochs,
+            'weight_decay': weight_decay
         },
         {
             'hparam/best_val_loss': best_val_loss,
