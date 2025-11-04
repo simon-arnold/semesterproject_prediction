@@ -551,7 +551,10 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
         ylabel_int = "Cumulative Integral Difference [Wh]" if scaler is not None else "Cumulative Integral Difference"
         ax_int.set_ylabel(ylabel_int, fontsize=12)
         
-        reset_info = f"(Reset every {integral_reset_interval} prediction horizon{'s' if integral_reset_interval > 1 else ''})"
+        if integral_reset_interval == 1:
+            reset_info = "(Reset after each prediction horizon)"
+        else:
+            reset_info = f"(Reset every {integral_reset_interval} prediction horizons)"
         ax_int.set_title(f"Cumulative Integral Difference: ∫(Prediction - Ground Truth) {reset_info}", 
                         fontsize=14, fontweight='bold')
         ax_int.legend(fontsize=11, loc='best')
