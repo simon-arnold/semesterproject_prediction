@@ -310,7 +310,8 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
         plot_metrics: Whether to display metrics in the plot
         plot_prediction_window_indication: Whether to show vertical lines between prediction windows
         plot_integral_difference: Whether to plot cumulative integral difference between prediction and ground truth
-        integral_reset_interval: After how many prediction horizons to reset the integral to 0 (default: 1)
+        integral_reset_interval: Number of prediction horizons (each of length `output_horizon` timesteps) after which the cumulative integral difference is reset. 
+            At each reset, the cumulative sum restarts from the current value at that point, not from the start of the timeline. (default: 1)
     """
     model.eval()
     all_preds = []
