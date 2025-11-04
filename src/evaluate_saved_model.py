@@ -131,6 +131,8 @@ def main():
                         help='Plot only test data without predictions (no model loading needed)')
     parser.add_argument('--predict_at_date', type=str, default=None, #Enter the date&time when the prediction should start
                         help='Make prediction starting at specific date (format: YYYY-MM-DD, e.g., 2018-08-31)')
+    parser.add_argument('--plot_integrated_difference', action='store_true',
+                        help='Plot cumulative integral difference in full test set plot', default=False)
     
     args = parser.parse_args()
 
@@ -191,7 +193,9 @@ def main():
             output_horizon=args.output_horizon,
             df_test=df_test,
             seq_len=args.seq_len,
-            scaler=train_set.scaler
+            scaler=train_set.scaler, 
+            plot_integral_difference=args.plot_integrated_difference, 
+            integral_reset_interval=6
         )
         
         
