@@ -1,9 +1,114 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import os
 
 
-def load_energy_hdf_to_pandas(h5_file_path, plot_data=True, use_time_axis=True, use_cyclic_encoding=True):
+def load_weather_data(weather_csv_path):
+    """
+    Load weather data from CSV and resample to 15-minute intervals.
+    
+    The weather data is provided every 10 minutes. For 15-minute intervals:
+    - xx:00 → use xx:00 (exact match)
+    - xx:15 → average of xx:10 and xx:20
+    - xx:30 → use xx:30 (exact match)
+    - xx:45 → average of xx:40 and xx:50
+    
+    Args:
+        weather_csv_path: Path to weather CSV file
+        
+    Returns:
+        DataFrame with DatetimeIndex and 'Temperature' column at 15-minute intervals
+    """
+    print(f"\n📊 Loading weather data from: {weather_csv_path}")
+    
+    # Load CSV with proper parsing
+    df_weather = pd.read_csv(weather_csv_path, sep=';', decimal=',')
+    
+    # Parse timestamp - format is "01.01.2010 00:00"
+    df_weather['timestamp'] = pd.to_datetime(df_weather['reference_timestamp'], format='%d.%m.%Y %H:%M')
+    df_weather = df_weather.set_index('timestamp')
+    df_weather = df_weather.sort_index()
+    
+    # Extract temperature column (tre200s0)
+    if 'tre200s0' not in df_weather.columns:
+        raise ValueError(f"Column 'tre200s0' not found in weather data. Available columns: {df_weather.columns.tolist()}")
+    
+    temperature = df_weather['tre200s0'].copy()
+    
+    # Convert to numeric (in case there are string values)
+    temperature = pd.to_numeric(temperature, errors='coerce')
+    
+    # Fill any NaN values
+    temperature = temperature.ffill().bfill()
+    
+    print(f"   Weather data loaded: {len(temperature)} records")
+    print(f"   Date range: {temperature.index[0]} to {temperature.index[-1]}")
+    print(f"   Temperature range: {temperature.min():.1f}°C to {temperature.max():.1f}°C")
+    
+    # Create 15-minute resampled data
+    temp_15min = pd.Series(dtype=float)
+    
+    # Get all timestamps in 10-minute resolution
+    idx_10min = temperature.index
+    
+    # Generate target 15-minute timestamps
+    start_date = idx_10min[0].floor('h')  # Start from beginning of first hour
+    end_date = idx_10min[-1].ceil('h')    # End at end of last hour
+    idx_15min = pd.date_range(start=start_date, end=end_date, freq='15min')
+    
+    temp_15min_values = []
+    
+    for ts in idx_15min:
+        minute = ts.minute
+        
+        if minute == 0:
+            # xx:00 → use xx:00 (exact match)
+            if ts in temperature.index:
+                temp_15min_values.append(temperature.loc[ts])
+            else:
+                temp_15min_values.append(np.nan)
+                
+        elif minute == 15:
+            # xx:15 → average of xx:10 and xx:20
+            ts_10 = ts - pd.Timedelta(minutes=5)  # xx:10
+            ts_20 = ts + pd.Timedelta(minutes=5)  # xx:20
+            
+            if ts_10 in temperature.index and ts_20 in temperature.index:
+                temp_15min_values.append((temperature.loc[ts_10] + temperature.loc[ts_20]) / 2)
+            else:
+                temp_15min_values.append(np.nan)
+                
+        elif minute == 30:
+            # xx:30 → use xx:30 (exact match)
+            if ts in temperature.index:
+                temp_15min_values.append(temperature.loc[ts])
+            else:
+                temp_15min_values.append(np.nan)
+                
+        elif minute == 45:
+            # xx:45 → average of xx:40 and xx:50
+            ts_40 = ts - pd.Timedelta(minutes=5)  # xx:40
+            ts_50 = ts + pd.Timedelta(minutes=5)  # xx:50
+            
+            if ts_40 in temperature.index and ts_50 in temperature.index:
+                temp_15min_values.append((temperature.loc[ts_40] + temperature.loc[ts_50]) / 2)
+            else:
+                temp_15min_values.append(np.nan)
+    
+    temp_15min = pd.Series(temp_15min_values, index=idx_15min, name='Temperature')
+    
+    # Fill any remaining NaN values
+    temp_15min = temp_15min.ffill().bfill()
+    
+    print(f"   Resampled to 15-minute intervals: {len(temp_15min)} records")
+    print(f"   NaN values after resampling: {temp_15min.isna().sum()}")
+    
+    return pd.DataFrame({'Temperature': temp_15min})
+
+
+def load_energy_hdf_to_pandas(h5_file_path, plot_data=True, use_time_axis=True, use_cyclic_encoding=True, 
+                              weather_csv_path=None):
     """
     Load the HDF5 file and return a DataFrame with smoothed 15-minute timesteps.
     Computes 'Load' = A_total_cons_power - A_sauna_power.
@@ -15,11 +120,13 @@ def load_energy_hdf_to_pandas(h5_file_path, plot_data=True, use_time_axis=True, 
         use_time_axis: Whether to use time axis in plots
         use_cyclic_encoding: If True, adds cyclic sin/cos features (tod_sin/cos, weekday_sin/cos, doy_sin/cos)
                             If False, uses raw features (Month, Day, Weekday, Timestep)
+        weather_csv_path: Optional path to weather CSV file. If provided, adds 'Temperature' column
     
     Returns:
         DataFrame with columns:
         - Always: Year, Month, Day, Timestep, Weekday, Load
         - If use_cyclic_encoding=True: also tod_sin/cos, weekday_sin/cos, doy_sin/cos
+        - If weather_csv_path provided: also Temperature
     """
     df_raw = pd.read_hdf(h5_file_path, key='data')
 
@@ -84,9 +191,25 @@ def load_energy_hdf_to_pandas(h5_file_path, plot_data=True, use_time_axis=True, 
     # ensure returned index is a clean DatetimeIndex without any serialized freq
     df_final.index = pd.to_datetime(df_final.index.values)
     
-    print(len(df_final))
+    # --- Merge weather data if provided ---
+    if weather_csv_path is not None:
+        print("\n🌡️  Integrating weather data...")
+        df_weather = load_weather_data(weather_csv_path)
+        
+        # Merge on index (timestamps must match exactly)
+        df_final = df_final.join(df_weather, how='inner')
+        
+        print(f"   Merged dataframe shape: {df_final.shape}")
+        print(f"   Temperature column added: {df_final['Temperature'].notna().sum()} valid values")
+        print(f"   Temperature stats: mean={df_final['Temperature'].mean():.1f}°C, "
+              f"std={df_final['Temperature'].std():.1f}°C, "
+              f"min={df_final['Temperature'].min():.1f}°C, "
+              f"max={df_final['Temperature'].max():.1f}°C")
+    
+    print(f"\n📋 Final dataset info:")
+    print(f"   Total records: {len(df_final)}")
+    print(f"   Columns: {list(df_final.columns)}")
     print(df_final.head(5))
-    print(df_final.columns)
 
     if plot_data:
         if use_time_axis:

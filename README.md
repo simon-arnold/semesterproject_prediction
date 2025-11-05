@@ -20,7 +20,7 @@ The environment configuration is stored in the file `environment.yml`.
    conda activate sp_project
    ```
 
-5. Download and Prepare Data
+5. Download and Prepare Electricity Data
 
    ```bash
    # Create folder and download dataset
@@ -36,3 +36,11 @@ The environment configuration is stored in the file `environment.yml`.
    rm -rf rawData/
    cd ..
    ```
+
+6. Download and prepare Weather Data
+   ```bash
+   cd data/data/
+   wget -O weather_data_house_a_LUZ.csv https://data.geo.admin.ch/ch.meteoschweiz.ogd-smn/luz/ogd-smn_luz_t_historical_2010-2019.csv
+   cd ../..
+   ```
+   

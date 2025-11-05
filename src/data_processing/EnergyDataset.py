@@ -36,17 +36,37 @@ class EnergyDataset(Dataset):
         self._df_full = df.copy()
 
         # Define which columns go into the model based on encoding method
+        # Check if Temperature column is available
+        has_temperature = 'Temperature' in df.columns
+        
         if use_cyclic_encoding:
-            # 8 features: Year + 6 cyclic (tod_sin/cos, weekday_sin/cos, doy_sin/cos) + Load
+            # Base: 8 features: Year + 6 cyclic (tod_sin/cos, weekday_sin/cos, doy_sin/cos) + Load
             self.model_feature_cols = ['Year', 'tod_sin', 'tod_cos', 'weekday_sin', 
-                                        'weekday_cos', 'doy_sin', 'doy_cos', 'Load']
-            # Only Year and Load need normalization (cyclic features are already in [-1,1])
-            cols_to_normalize = ['Year', 'Load']
+                                        'weekday_cos', 'doy_sin', 'doy_cos']
+            cols_to_normalize = ['Year']
+            
+            # Add Temperature as second-to-last feature if available
+            if has_temperature:
+                self.model_feature_cols.append('Temperature')
+                cols_to_normalize.append('Temperature')
+            
+            # Load is always the last feature
+            self.model_feature_cols.append('Load')
+            cols_to_normalize.append('Load')
+            
         else:
-            # 6 features: Year, Month, Day, Weekday, Timestep, Load
-            self.model_feature_cols = ['Year', 'Month', 'Day', 'Weekday', 'Timestep', 'Load']
-            # All non-Load features need normalization in this case
-            cols_to_normalize = ['Year', 'Month', 'Day', 'Weekday', 'Timestep', 'Load']
+            # Base: 6 features: Year, Month, Day, Weekday, Timestep, Load
+            self.model_feature_cols = ['Year', 'Month', 'Day', 'Weekday', 'Timestep']
+            cols_to_normalize = ['Year', 'Month', 'Day', 'Weekday', 'Timestep']
+            
+            # Add Temperature as second-to-last feature if available
+            if has_temperature:
+                self.model_feature_cols.append('Temperature')
+                cols_to_normalize.append('Temperature')
+            
+            # Load is always the last feature
+            self.model_feature_cols.append('Load')
+            cols_to_normalize.append('Load')
         
         # Check if required columns exist in DataFrame
         missing_cols = set(self.model_feature_cols) - set(df.columns)

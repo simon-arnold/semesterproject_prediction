@@ -22,14 +22,20 @@ def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"Using device: {device}")
     
-    # Display encoding mode
+    # Display encoding mode (will be updated after data loading if temperature is available)
     if use_cyclic_encoding:
-        print(f"{YELLOW}🔄 Feature Encoding: CYCLIC (8 features: Year + 6 cyclic + Load){RESET}")
+        print(f"{YELLOW}🔄 Feature Encoding: CYCLIC (8+ features: Year + 6 cyclic + Load + ...){RESET}")
     else:
-        print(f"{YELLOW}📊 Feature Encoding: RAW (6 features: Year, Month, Day, Weekday, Timestep, Load){RESET}")
+        print(f"{YELLOW}📊 Feature Encoding: RAW (6+ features: Year, Month, Day, Weekday, Timestep, Load + ...){RESET}")
 
     # 1️. Load Data
-    df = load_energy_hdf_to_pandas("data/data/dfA_300s.hdf", plot_data=False, use_cyclic_encoding=use_cyclic_encoding)
+    weather_path = "data/data/weather_data_house_a_LUZ.csv"
+    df = load_energy_hdf_to_pandas(
+        "data/data/dfA_300s.hdf", 
+        plot_data=False, 
+        use_cyclic_encoding=use_cyclic_encoding,
+        weather_csv_path=weather_path
+    )
 
     # 2️. Split
     df_train, df_val, df_test = split_dataframe(df, 0.7, 0.15, 0.15)
@@ -58,15 +64,24 @@ def main():
     training_epochs = 1*10
     use_lr_scheduler = False  # Set to False for constant learning rate
     
-    # Determine number of input features based on encoding method
+    # Determine number of input features based on encoding method and available data
+    # Check if Temperature column exists in the dataframe
+    has_temperature = 'Temperature' in df.columns
+    
     if use_cyclic_encoding:
-        # 8 features: Year + 6 cyclic (tod_sin/cos, weekday_sin/cos, doy_sin/cos) + Load
+        # Base: 8 features (Year + 6 cyclic + Load)
         input_dim = 8
         feature_description = "Year + 6 cyclic (tod_sin/cos, weekday_sin/cos, doy_sin/cos) + Load"
+        if has_temperature:
+            input_dim = 9  # Add Temperature
+            feature_description += " + Temperature"
     else:
-        # 6 features: Year, Month, Day, Weekday, Timestep, Load
+        # Base: 6 features (Year, Month, Day, Weekday, Timestep, Load)
         input_dim = 6
         feature_description = "Year, Month, Day, Weekday, Timestep, Load"
+        if has_temperature:
+            input_dim = 7  # Add Temperature
+            feature_description += " + Temperature"
     
     print(f"\n🔧 Model configuration:")
     print(f"   Cyclic encoding: {use_cyclic_encoding}")
