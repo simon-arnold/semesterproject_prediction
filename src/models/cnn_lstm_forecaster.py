@@ -17,10 +17,11 @@ class CNN_LSTM_Forecaster(nn.Module):
         super().__init__()
 
         # --- Convolutional feature extractor ---
+        #Ich have das Gefühl kleinere kernel (die beiden ersten = 3) erkennen spitzen fast besser aber gewisse andere patterns werden schlechter erkannt
         self.conv1 = nn.Conv1d(
             in_channels=input_dim,
             out_channels=32,
-            kernel_size=5,
+            kernel_size=4, #Changed from 5->4 way faster training time
             stride=1,
             padding=2,
         )

@@ -75,7 +75,7 @@ def main():
     test_loader  = DataLoader(test_set, batch_size=batch_size)
 
     # 5️. Model + Training
-    training_epochs = 1*10
+    training_epochs = 1*15
     use_lr_scheduler = False  # Set to False for constant learning rate
     
     # Determine number of input features based on encoding method and available data
@@ -109,7 +109,7 @@ def main():
     model, best_val_loss = train_model(
         model, train_loader, val_loader, 
         n_epochs=training_epochs, 
-        lr=1e-4, #standard: 1e-4
+        lr=3e-4, #standard: 1e-4
         device=device,
         use_scheduler=use_lr_scheduler
     )
