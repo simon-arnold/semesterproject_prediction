@@ -26,7 +26,7 @@ use_cyclic_encoding = True
 #   - 24 timesteps = 6 hours
 #   - 32 timesteps = 8 hours
 #   - 48 timesteps = 12 hours
-FORECAST_HORIZON_TIMESTEPS = 32
+FORECAST_HORIZON_TIMESTEPS = 16
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
