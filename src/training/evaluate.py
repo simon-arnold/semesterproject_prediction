@@ -158,15 +158,15 @@ def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date
                                       n_examples=1, seq_len=192, output_horizon=16, device="cpu", 
                                       plot_metrics=False):
     """
-    Plot multiple predictions starting at a given date, spaced 4 hours (half day) apart.
+    Plot multiple predictions starting at a given date, spaced by the forecast horizon apart.
     
     Args:
         model: Trained model
         df_test: Test dataframe
         start_date: Last Date of the Input Sequence.
-        n_examples: Number of predictions to plot (each 4 hours apart)
+        n_examples: Number of predictions to plot (each spaced by output_horizon timesteps)
         seq_len: Sequence length for input
-        output_horizon: Prediction horizon
+        output_horizon: Prediction horizon (number of timesteps to predict)
         scaler: MinMaxScaler for normalization
         device: Device for model inference
     """
@@ -180,6 +180,7 @@ def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date
     
     # Generating a plot after each complete forecast horizon.
     spacing_timesteps = output_horizon
+    spacing_hours = output_horizon / 4  # Each timestep = 15 minutes
     
     # Handle start_date
     if start_date is None:
@@ -188,9 +189,9 @@ def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date
         actual_start = test_set.input_end_dates[0]
         closest_idx = 0
         print(f"   No start date provided. Using earliest possible date: {actual_start+pd.Timedelta(minutes=15)}")
-        print(f"   Generating {n_examples} predictions spaced 4 hours apart...")
+        print(f"   Generating {n_examples} predictions spaced {spacing_hours:.1f} hours ({output_horizon} timesteps) apart...")
     else:
-        print(f"   Generating {n_examples} predictions starting from {start_date}, spaced 4 hours apart...")
+        print(f"   Generating {n_examples} predictions starting from {start_date}, spaced {spacing_hours:.1f} hours ({output_horizon} timesteps) apart...")
 
         if isinstance(start_date, str):
             start_date = np.datetime64(start_date) - np.timedelta64(15, 'm')
@@ -294,7 +295,7 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
                                    seq_len=192, scaler=None, plot_metrics=False, 
                                    plot_prediction_window_indication=True,
                                    plot_integral_difference=False,
-                                   integral_reset_interval=1):
+                                   integral_reset_timesteps=None):
     """
     Plottet Test-Predictions OHNE Überlappungen.
     Nimmt nur jeden output_horizon-ten Sample für eine echte kontinuierliche Timeline.
@@ -303,15 +304,16 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
         model: Trained model
         test_loader: DataLoader for test set
         device: Device to run inference on
-        output_horizon: Output horizon (z.B. 16) - bestimmt Sampling-Rate
+        output_horizon: Output horizon (number of timesteps to predict) - bestimmt Sampling-Rate
         df_test: Original test dataframe (optional) - für echte Zeitachse
         seq_len: Sequence length (nur relevant wenn df_test gegeben)
         scaler: Scaler to denormalize data
         plot_metrics: Whether to display metrics in the plot
         plot_prediction_window_indication: Whether to show vertical lines between prediction windows
         plot_integral_difference: Whether to plot cumulative integral difference between prediction and ground truth
-        integral_reset_interval: Number of prediction horizons (each of length `output_horizon` timesteps) after which the cumulative integral difference is reset. 
-            At each reset, the cumulative sum restarts from the current value at that point, not from the start of the timeline. (default: 1)
+        integral_reset_timesteps: Number of timesteps after which the cumulative integral difference is reset. 
+            At each reset, the cumulative sum restarts from the current value at that point, not from the start of the timeline.
+            If None, defaults to output_horizon (reset after each forecast horizon). (default: None)
     """
     model.eval()
     all_preds = []
@@ -352,7 +354,8 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
     print()
 
     # Sample every output_horizon-th prediction to avoid overlaps
-    # Sample 0 predicts [192:208], Sample 16 predicts [208:224], Sample 32 predicts [224:240], etc.
+    # E.g., if output_horizon=16: Sample 0 predicts [192:208], Sample 16 predicts [208:224], Sample 32 predicts [224:240], etc.
+    # E.g., if output_horizon=32: Sample 0 predicts [192:224], Sample 32 predicts [224:256], Sample 64 predicts [256:288], etc.
     selected_indices = np.arange(0, len(all_preds), output_horizon)
     
     # print(f"   Total samples: {len(all_preds)}")
@@ -504,6 +507,10 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
     if plot_integral_difference:
         print(f"{CYAN}Generating cumulative integral difference plot...{RESET}")
         
+        # Set default reset length if not specified
+        if integral_reset_timesteps is None:
+            integral_reset_timesteps = output_horizon
+        
         # Compute cumulative integrals with resets
         # Each timestep is 15 minutes = 0.25 hours, so multiply by 0.25 to get Wh
         timestep_hours = 0.25  # 15 minutes in hours
@@ -511,7 +518,7 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
         cumsum_pred = np.zeros_like(pred_timeline)
         cumsum_target = np.zeros_like(target_timeline)
         
-        reset_length = output_horizon * integral_reset_interval
+        reset_length = integral_reset_timesteps
         
         for i in range(len(pred_timeline)):
             # Reset to 0 at the beginning of each reset interval
@@ -552,10 +559,10 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
         ylabel_int = "Cumulative Integral Difference [Wh]" if scaler is not None else "Cumulative Integral Difference"
         ax_int.set_ylabel(ylabel_int, fontsize=12)
         
-        if integral_reset_interval == 1:
+        if integral_reset_timesteps == output_horizon:
             reset_info = "(Reset after each prediction horizon)"
         else:
-            reset_info = f"(Reset every {integral_reset_interval} prediction horizons)"
+            reset_info = f"(Reset every {integral_reset_timesteps} timesteps = {integral_reset_timesteps/4:.1f} hours)"
         ax_int.set_title(f"Cumulative Integral Difference: ∫(Prediction - Ground Truth) {reset_info}", 
                         fontsize=14, fontweight='bold')
         ax_int.legend(fontsize=11, loc='best')

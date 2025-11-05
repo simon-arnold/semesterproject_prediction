@@ -21,7 +21,7 @@ class EnergyDataset(Dataset):
             - Always present: Year, Month, Day, Timestep, Weekday, Load
             - If use_cyclic_encoding=True: tod_sin/cos, weekday_sin/cos, doy_sin/cos
         seq_len: length of the input sequence
-        output_horizon: length of the output (e.g. 16 for 4x4)
+        output_horizon: length of the output forecast (number of timesteps to predict)
         normalize: whether to normalize the data
         scaler: pre-fitted scaler (if None, will fit a new one - use for training data only!)
         use_cyclic_encoding: If True, uses cyclic sin/cos features. If False, uses raw time features.

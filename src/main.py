@@ -14,9 +14,19 @@ RESET = '\033[0m'
 store_onnx = True  
 
 # ========================================
-# CONFIGURATION: Cyclic Encoding
+# CONFIGURATION
 # ========================================
-use_cyclic_encoding = True  # True: use cyclic features (sin/cos), False: use raw features (Month, Day, Weekday, Timestep)
+# Cyclic Encoding: True = use cyclic features (sin/cos), False = use raw features (Month, Day, Weekday, Timestep)
+use_cyclic_encoding = True
+
+# Forecast Horizon: Number of timesteps to predict into the future
+# Each timestep = 15 minutes (for 300s = 5min data, this would be 3 timesteps = 15min)
+# Examples: 
+#   - 16 timesteps = 4 hours (default)
+#   - 24 timesteps = 6 hours
+#   - 32 timesteps = 8 hours
+#   - 48 timesteps = 12 hours
+FORECAST_HORIZON_TIMESTEPS = 32
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -41,8 +51,12 @@ def main():
     df_train, df_val, df_test = split_dataframe(df, 0.7, 0.15, 0.15)
 
     # 3️. Create datasets
-    seq_len = 2*24*4
-    output_horizon = 4*4
+    seq_len = 2*24*4  # Input sequence length: 2 days of data (192 timesteps at 15min intervals)
+    output_horizon = FORECAST_HORIZON_TIMESTEPS  # Use configured forecast horizon
+    
+    print(f"\n📊 Dataset Configuration:")
+    print(f"   Input sequence length: {seq_len} timesteps ({seq_len/4:.1f} hours)")
+    print(f"   Forecast horizon: {output_horizon} timesteps ({output_horizon/4:.1f} hours)")
     
     # IMPORTANT: Fit scaler on training data, then reuse for val/test!
     train_set = EnergyDataset(df_train, seq_len, output_horizon, normalize=True, scaler=None, use_cyclic_encoding=use_cyclic_encoding)

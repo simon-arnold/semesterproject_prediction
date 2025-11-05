@@ -171,6 +171,8 @@ def main():
                         help='Make prediction starting at specific date (format: YYYY-MM-DD, e.g., 2018-08-31)')
     parser.add_argument('--plot_integrated_difference', action='store_true',
                         help='Plot cumulative integral difference in full test set plot', default=False)
+    parser.add_argument('--integral_reset_timesteps', type=int, default=None,
+                        help='Number of timesteps after which cumulative integral difference resets (default: None = reset after each forecast horizon)')
     
     args = parser.parse_args()
 
@@ -232,10 +234,18 @@ def main():
             device=device
         )
         
-        
-        
-    # Plot predictions all 16 timesteps - get an overview of full prediction
+    
+    
+    # Plot predictions over full test set - get an overview of predictions
     if args.plot_full:
+        # Calculate integral_reset_interval from timesteps
+        # If user specified timesteps, use that; otherwise default to 1 forecast horizon
+        if args.integral_reset_timesteps is not None:
+            integral_reset_timesteps = args.integral_reset_timesteps
+        else:
+            # Default: reset after each forecast horizon
+            integral_reset_timesteps = args.output_horizon
+        
         all_preds, all_targets = plot_full_test_set_predictions(
             model, test_loader, device, 
             output_horizon=args.output_horizon,
@@ -243,7 +253,7 @@ def main():
             seq_len=args.seq_len,
             scaler=train_set.scaler, 
             plot_integral_difference=args.plot_integrated_difference, 
-            integral_reset_interval=6
+            integral_reset_timesteps=integral_reset_timesteps
         )
         
         
