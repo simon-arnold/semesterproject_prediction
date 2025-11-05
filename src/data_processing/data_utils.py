@@ -287,3 +287,201 @@ def split_dataframe(df, train_frac=0.7, val_frac=0.15, test_frac=0.15):
     print(f"  Test:  {len(df_test)} samples ({test_frac*100:.0f}%)")
 
     return df_train, df_val, df_test
+
+
+if __name__ == "__main__":
+    """
+    Visualisiert die Features und Raw-Daten aus dem Energy-Dataset.
+    
+    Figure 1: Alle Features, die das Dataset rausgibt
+    Figure 2: Alle einzelnen Verbrauchskomponenten aus df_raw
+    """
+    import matplotlib.dates as mdates
+    
+    # Pfade
+    h5_file = "data/data/dfA_300s.hdf"
+    weather_csv = "data/data/weather_data_house_a_LUZ.csv"
+    
+    print("="*60)
+    print("ENERGY DATASET VISUALIZATION")
+    print("="*60)
+    
+    # Lade prozessierte Features (mit Temperature)
+    df_features = load_energy_hdf_to_pandas(
+        h5_file, 
+        plot_data=False, 
+        use_cyclic_encoding=True,
+        weather_csv_path=weather_csv
+    )
+    
+    # Lade Raw-Daten für Komponenten-Plot
+    df_raw = pd.read_hdf(h5_file, key='data')
+    df_raw.index = pd.to_datetime(df_raw.index)
+    df_raw = df_raw.sort_index()
+    
+    # Wähle Zeitbereich (z.B. 7 Tage für bessere Übersicht)
+    start_date = df_features.index[0]
+    end_date = start_date + pd.Timedelta(days=7)
+    
+    df_features_subset = df_features.loc[start_date:end_date]
+    df_raw_subset = df_raw.loc[start_date:end_date]
+    
+    # Berechne zusätzliche Komponente: Total - Sauna (ohne Wärmepumpe)
+    # Wichtig: Auf denselben Index wie df_features_subset reindexen (15-Minuten Daten)
+    total_minus_sauna = (df_raw['A_total_cons_power'] - df_raw['A_sauna_power']).loc[start_date:end_date]
+    total_minus_sauna_minus_hp = (df_raw['A_total_cons_power'] - df_raw['A_sauna_power'] - df_raw['A_hp_power']).loc[start_date:end_date]
+    
+    # Reindexiere auf 15-Minuten Index
+    total_minus_sauna = total_minus_sauna.reindex(df_features_subset.index, method='nearest')
+    total_minus_sauna_minus_hp = total_minus_sauna_minus_hp.reindex(df_features_subset.index, method='nearest')
+    
+    # =====================================================================
+    # FIGURE 1: Alle Features die das Dataset rausgibt
+    # =====================================================================
+    print("\n📊 Creating Figure 1: All Dataset Features...")
+    
+    fig1, axes1 = plt.subplots(4, 2, figsize=(16, 14))
+    fig1.suptitle('Figure 1: Alle Features vom Energy-Dataset (7 Tage)', fontsize=16, fontweight='bold')
+    
+    # Load (ges - sauna - wärmepumpe)
+    ax = axes1[0, 0]
+    ax.plot(df_features_subset.index, total_minus_sauna, linewidth=1, label='Total - Sauna')
+    ax.plot(df_features_subset.index, total_minus_sauna_minus_hp, linewidth=1, label='Total - Sauna - Wärmepumpe')
+    ax.set_title('Load (Ges - Sauna - Wärmepumpe)', fontweight='bold')
+    ax.set_ylabel('Load [W]')
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%d.%m %H:%M'))
+    plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
+    
+
+    
+    # Temperature (falls vorhanden)
+    ax = axes1[0, 1]
+    if 'Temperature' in df_features_subset.columns:
+        ax.plot(df_features_subset.index, df_features_subset['Temperature'], linewidth=1, color='red')
+        ax.set_title('Temperature', fontweight='bold')
+        ax.set_ylabel('Temperatur [°C]')
+    else:
+        ax.text(0.5, 0.5, 'Temperature nicht verfügbar', ha='center', va='center', transform=ax.transAxes)
+    ax.grid(True, alpha=0.3)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%d.%m %H:%M'))
+    plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
+    
+    # Cyclic: Time-of-Day (sin/cos)
+    ax = axes1[1, 0]
+    if 'tod_sin' in df_features_subset.columns:
+        ax.plot(df_features_subset.index, df_features_subset['tod_sin'], label='tod_sin', linewidth=1, alpha=0.7)
+        ax.plot(df_features_subset.index, df_features_subset['tod_cos'], label='tod_cos', linewidth=1, alpha=0.7)
+        ax.set_title('Time-of-Day (cyclic)', fontweight='bold')
+        ax.legend()
+    else:
+        ax.text(0.5, 0.5, 'Cyclic Features nicht verfügbar', ha='center', va='center', transform=ax.transAxes)
+    ax.set_ylabel('Wert')
+    ax.grid(True, alpha=0.3)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%d.%m %H:%M'))
+    plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
+    
+    # Cyclic: Weekday (sin/cos)
+    ax = axes1[1, 1]
+    if 'weekday_sin' in df_features_subset.columns:
+        ax.plot(df_features_subset.index, df_features_subset['weekday_sin'], label='weekday_sin', linewidth=1, alpha=0.7)
+        ax.plot(df_features_subset.index, df_features_subset['weekday_cos'], label='weekday_cos', linewidth=1, alpha=0.7)
+        ax.set_title('Weekday (cyclic)', fontweight='bold')
+        ax.legend()
+    else:
+        ax.text(0.5, 0.5, 'Cyclic Features nicht verfügbar', ha='center', va='center', transform=ax.transAxes)
+    ax.set_ylabel('Wert')
+    ax.grid(True, alpha=0.3)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%d.%m %H:%M'))
+    plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
+    
+    # Cyclic: Day-of-Year (sin/cos)
+    ax = axes1[2, 0]
+    if 'doy_sin' in df_features_subset.columns:
+        ax.plot(df_features_subset.index, df_features_subset['doy_sin'], label='doy_sin', linewidth=1, alpha=0.7)
+        ax.plot(df_features_subset.index, df_features_subset['doy_cos'], label='doy_cos', linewidth=1, alpha=0.7)
+        ax.set_title('Day-of-Year (cyclic)', fontweight='bold')
+        ax.legend()
+    else:
+        ax.text(0.5, 0.5, 'Cyclic Features nicht verfügbar', ha='center', va='center', transform=ax.transAxes)
+    ax.set_ylabel('Wert')
+    ax.grid(True, alpha=0.3)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%d.%m %H:%M'))
+    plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
+    
+    # Raw features: Month, Day, Weekday, Timestep
+    ax = axes1[2, 1]
+    ax.plot(df_features_subset.index, df_features_subset['Month'], label='Month', linewidth=1, alpha=0.7)
+    ax.plot(df_features_subset.index, df_features_subset['Day'], label='Day', linewidth=1, alpha=0.7)
+    ax.set_title('Month & Day', fontweight='bold')
+    ax.set_ylabel('Wert')
+    ax.legend()
+    ax.grid(True, alpha=0.3)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%d.%m %H:%M'))
+    plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
+    
+    ax = axes1[3, 0]
+    ax.plot(df_features_subset.index, df_features_subset['Weekday'], linewidth=1, color='purple')
+    ax.set_title('Weekday (0=Mon, 6=Sun)', fontweight='bold')
+    ax.set_ylabel('Wert')
+    ax.grid(True, alpha=0.3)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%d.%m %H:%M'))
+    plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
+    
+    ax = axes1[3, 1]
+    ax.plot(df_features_subset.index, df_features_subset['Timestep'], linewidth=1, color='orange')
+    ax.set_title('Timestep (0-95, 15min intervals)', fontweight='bold')
+    ax.set_ylabel('Wert')
+    ax.grid(True, alpha=0.3)
+    ax.xaxis.set_major_formatter(mdates.DateFormatter('%d.%m %H:%M'))
+    plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
+    
+    # Leer (für Symmetrie)
+    
+    
+    plt.tight_layout()
+    
+    # =====================================================================
+    # FIGURE 2: Alle einzelnen Verbrauchskomponenten aus df_raw
+    # =====================================================================
+    print("📊 Creating Figure 2: Raw Power Components...")
+    
+    fig2, axes2 = plt.subplots(4, 2, figsize=(16, 12))
+    fig2.suptitle('Figure 2: Alle Verbrauchskomponenten (Raw Data, 7 Tage)', fontsize=16, fontweight='bold')
+    
+    components = [
+        ('A_total_cons_power', 'Gesamtverbrauch', 'blue'),
+        ('A_dishwasher_power', 'Geschirrspüler', 'green'),
+        ('A_stove_power', 'Herd', 'red'),
+        ('A_exp_power', 'Export', 'orange'),
+        ('A_hp_power', 'Wärmepumpe', 'purple'),
+        ('A_sauna_power', 'Sauna', 'brown'),
+        ('A_additional_power', 'Zusätzlich', 'cyan'),
+        ('A_washing_machine_power', 'Waschmaschine', 'magenta')
+    ]
+    
+    for idx, (col, title, color) in enumerate(components):
+        ax = axes2[idx // 2, idx % 2]
+        if col in df_raw_subset.columns:
+            ax.plot(df_raw_subset.index, df_raw_subset[col], linewidth=1, color=color)
+            ax.set_title(f'{title} ({col})', fontweight='bold')
+            ax.set_ylabel('Power [W]')
+            ax.grid(True, alpha=0.3)
+            ax.xaxis.set_major_formatter(mdates.DateFormatter('%d.%m %H:%M'))
+            plt.setp(ax.xaxis.get_majorticklabels(), rotation=45, ha='right')
+        else:
+            ax.text(0.5, 0.5, f'{col} nicht verfügbar', ha='center', va='center', transform=ax.transAxes)
+            ax.set_title(title, fontweight='bold')
+    
+    plt.tight_layout()
+    
+    print("\n✅ Plots erstellt! Fenster werden angezeigt...")
+    print("   Figure 1: Alle Features vom Dataset")
+    print("   Figure 2: Alle Raw-Verbrauchskomponenten")
+    
+    plt.show()
+    
+    print("\n" + "="*60)
+    print("Fertig!")
+    print("="*60)
