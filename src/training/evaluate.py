@@ -354,8 +354,9 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
     print()
 
     # Sample every output_horizon-th prediction to avoid overlaps
-    # E.g., if output_horizon=16: Sample 0 predicts [192:208], Sample 16 predicts [208:224], Sample 32 predicts [224:240], etc.
-    # E.g., if output_horizon=32: Sample 0 predicts [192:224], Sample 32 predicts [224:256], Sample 64 predicts [256:288], etc.
+    # E.g., if seq_len=192 and output_horizon=16: Sample 0 predicts [192:208], Sample 16 predicts [208:224], etc.
+    # E.g., if seq_len=192 and output_horizon=32: Sample 0 predicts [192:224], Sample 32 predicts [224:256], etc.
+    # E.g., if seq_len=288 and output_horizon=16: Sample 0 predicts [288:304], Sample 16 predicts [304:320], etc.
     selected_indices = np.arange(0, len(all_preds), output_horizon)
     
     # print(f"   Total samples: {len(all_preds)}")

@@ -19,8 +19,17 @@ store_onnx = True
 # Cyclic Encoding: True = use cyclic features (sin/cos), False = use raw features (Month, Day, Weekday, Timestep)
 use_cyclic_encoding = True
 
+# Input Sequence Length: Number of timesteps to use as input
+# Each timestep = 15 minutes
+# Examples:
+#   - 192 timesteps = 48 hours = 2 days (default)
+#   - 288 timesteps = 72 hours = 3 days
+#   - 384 timesteps = 96 hours = 4 days
+#   - 96 timesteps = 24 hours = 1 day
+INPUT_SEQUENCE_LENGTH_TIMESTEPS = 192 #also reasonable results with 96 but then lr -> 1e-4
+
 # Forecast Horizon: Number of timesteps to predict into the future
-# Each timestep = 15 minutes (for 300s = 5min data, this would be 3 timesteps = 15min)
+# Each timestep = 15 minutes
 # Examples: 
 #   - 16 timesteps = 4 hours (default)
 #   - 24 timesteps = 6 hours
@@ -51,11 +60,11 @@ def main():
     df_train, df_val, df_test = split_dataframe(df, 0.7, 0.15, 0.15)
 
     # 3️. Create datasets
-    seq_len = 2*24*4  # Input sequence length: 2 days of data (192 timesteps at 15min intervals)
+    seq_len = INPUT_SEQUENCE_LENGTH_TIMESTEPS  # Use configured input sequence length
     output_horizon = FORECAST_HORIZON_TIMESTEPS  # Use configured forecast horizon
     
     print(f"\n📊 Dataset Configuration:")
-    print(f"   Input sequence length: {seq_len} timesteps ({seq_len/4:.1f} hours)")
+    print(f"   Input sequence length: {seq_len} timesteps ({seq_len/4:.1f} hours = {seq_len/96:.1f} days)")
     print(f"   Forecast horizon: {output_horizon} timesteps ({output_horizon/4:.1f} hours)")
     
     # IMPORTANT: Fit scaler on training data, then reuse for val/test!
@@ -109,7 +118,7 @@ def main():
     model, best_val_loss = train_model(
         model, train_loader, val_loader, 
         n_epochs=training_epochs, 
-        lr=3e-4, #standard: 1e-4
+        lr=1e-4, #standard: 1e-4
         device=device,
         use_scheduler=use_lr_scheduler
     )
