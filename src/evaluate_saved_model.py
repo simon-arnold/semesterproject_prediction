@@ -171,7 +171,7 @@ def main():
                         help='Make prediction starting at specific date (format: YYYY-MM-DD, e.g., 2018-08-31)')
     parser.add_argument('--plot_integrated_difference', action='store_true',
                         help='Plot cumulative integral difference in full test set plot', default=False)
-    parser.add_argument('--integral_reset_timesteps', type=int, default=None,
+    parser.add_argument('--integral_reset_timesteps', type=int, default=96,
                         help='Number of timesteps after which cumulative integral difference resets (default: None = reset after each forecast horizon)')
     
     args = parser.parse_args()
