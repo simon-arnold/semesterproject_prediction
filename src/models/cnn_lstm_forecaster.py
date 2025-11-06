@@ -81,9 +81,9 @@ class CNN_LSTM_Forecaster(nn.Module):
         # self.fc1 = nn.Linear(128 * conv_out_len, 256)  # Flatten all LSTM outputs
         self.fc1 = nn.Linear(self.lstm.hidden_size, self.lstm.hidden_size)
         self.dropout_fc = nn.Dropout(dropout_prob)
-        self.fc112 = nn.Linear(self.lstm.hidden_size, 256)
-        self.fc2 = nn.Linear(256, 128)
-        self.fc3 = nn.Linear(128, output_dim)
+        self.fc112 = nn.Linear(self.lstm.hidden_size, 280)
+        self.fc2 = nn.Linear(280, 170)
+        self.fc3 = nn.Linear(170, output_dim)
 
     def _calc_conv_output(self, seq_len):
         """Helper to compute sequence length after three Conv+Pool stacks."""
