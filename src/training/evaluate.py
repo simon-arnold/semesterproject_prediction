@@ -81,6 +81,21 @@ def plot_raw_dataframe(df, title="Test Data"):
         else:
             load_col = 'Load'
 
+        # Calculate global Y-axis limits across all datasets
+        global_min = min(df_train[load_col].min(), df_val[load_col].min(), df_test[load_col].min())
+        global_max = max(df_train[load_col].max(), df_val[load_col].max(), df_test[load_col].max())
+        
+        # Add 5% padding to y-axis
+        y_padding = (global_max - global_min) * 0.05
+        y_min = global_min - y_padding
+        y_max = global_max + y_padding
+        
+        # Calculate time spans for each dataset (in days)
+        train_duration = (df_train.index[-1] - df_train.index[0]).total_seconds() / 86400
+        val_duration = (df_val.index[-1] - df_val.index[0]).total_seconds() / 86400
+        test_duration = (df_test.index[-1] - df_test.index[0]).total_seconds() / 86400
+        max_duration = max(train_duration, val_duration, test_duration)
+        
         fig, axes = plt.subplots(3, 1, figsize=(20, 12), sharex=False)
         
         datasets = [
@@ -95,6 +110,20 @@ def plot_raw_dataframe(df, title="Test Data"):
             axes[i].set_title(f"{label} Dataset ({len(data)} samples)", fontsize=12, fontweight='bold')
             axes[i].grid(True, alpha=0.3)
             
+            # Set same Y-axis limits for all plots
+            axes[i].set_ylim(y_min, y_max)
+            
+            # Set X-axis limits to ensure same visual spacing (days per inch)
+            data_duration = (data.index[-1] - data.index[0]).total_seconds() / 86400
+            
+            # Calculate center of current dataset
+            data_center = data.index[0] + (data.index[-1] - data.index[0]) / 2
+            
+            # Set x-limits to show the same time span as the longest dataset
+            from datetime import timedelta
+            x_min = data_center - timedelta(days=max_duration/2)
+            x_max = data_center + timedelta(days=max_duration/2)
+            axes[i].set_xlim(x_min, x_max)
 
             mean_val = data[load_col].mean()
             std_val = data[load_col].std()

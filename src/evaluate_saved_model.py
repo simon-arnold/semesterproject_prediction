@@ -163,6 +163,8 @@ def main():
                         help='Batch size for evaluation')
     parser.add_argument('--plot_full', action='store_true', 
                         help='Plot entire test set in one continuous timeline')
+    parser.add_argument('--plot_full_train', action='store_true',
+                        help='Plot entire training set in one continuous timeline')
     parser.add_argument('--skip_examples', action='store_true',
                         help='Skip individual example plots (useful with --plot_full)')
     parser.add_argument('--plot_train_val_test', action='store_true',
@@ -235,6 +237,28 @@ def main():
         )
         
     
+    
+    # Plot predictions over full training set
+    if args.plot_full_train:
+        print(f"{CYAN}📊 Plotting predictions over full training set...{RESET}")
+        train_loader = DataLoader(train_set, batch_size=args.batch_size)
+        
+        # Calculate integral_reset_interval from timesteps
+        if args.integral_reset_timesteps is not None:
+            integral_reset_timesteps = args.integral_reset_timesteps
+        else:
+            # Default: reset after each forecast horizon
+            integral_reset_timesteps = args.output_horizon
+        
+        all_preds_train, all_targets_train = plot_full_test_set_predictions(
+            model, train_loader, device, 
+            output_horizon=args.output_horizon,
+            df_test=df_train,  # Use training dataframe
+            seq_len=args.seq_len,
+            scaler=train_set.scaler, 
+            plot_integral_difference=args.plot_integrated_difference, 
+            integral_reset_timesteps=integral_reset_timesteps
+        )
     
     # Plot predictions over full test set - get an overview of predictions
     if args.plot_full:
