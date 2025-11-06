@@ -21,7 +21,7 @@ class CNN_LSTM_Forecaster(nn.Module):
         self.conv1 = nn.Conv1d(
             in_channels=input_dim,
             out_channels=32,
-            kernel_size=5, #Changed from 5->4 way faster training time
+            kernel_size=4, #Changed from 5->4 way faster training time
             stride=1,
             padding=2,
         )
@@ -66,12 +66,12 @@ class CNN_LSTM_Forecaster(nn.Module):
         self.lstm_input_size = self.conv3.out_channels  # number of filters from last Conv layer
 
         # --- LSTM for temporal modeling ---
-        self.lstm = nn.LSTM(input_size=self.lstm_input_size, hidden_size=2*128, 
+        self.lstm = nn.LSTM(input_size=self.lstm_input_size, hidden_size=3*128, 
                            num_layers=1, batch_first=True, dropout=0.2)
 
         # --- Fully connected layers ---
         # Use ALL lstm outputs, not just last timestep
-        # self.fc1 = nn.Linear(128 * conv_out_len, 256)  # Flatten all LSTM outputs
+        # self.fc1 = nn.Linear(self.lstm.hidden_size * conv_out_len, 256)  # Flatten all LSTM outputs
         self.fc1 = nn.Linear(self.lstm.hidden_size, 256)
         self.dropout = nn.Dropout(0.3)
         self.fc2 = nn.Linear(256, 128)
@@ -137,6 +137,6 @@ class CNN_LSTM_Forecaster(nn.Module):
         x = nn.functional.relu(self.fc1(x))
         x = self.dropout(x)
         x = nn.functional.relu(self.fc2(x))
-        # out = self.fc3(x)  # Output layer
-        out = torch.sigmoid(self.fc3(x))  # Sigmoid to constrain output to [0, 1]
+        out = self.fc3(x)  # Output layer
+        # out = torch.sigmoid(self.fc3(x))  # Sigmoid to constrain output to [0, 1]
         return out
