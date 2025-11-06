@@ -4,6 +4,7 @@ data/
 # Ignore model weights and ONNX exports
 NN_weights/
 NN_storage/
+NN_storage*/
 *.pth
 *.onnx
 

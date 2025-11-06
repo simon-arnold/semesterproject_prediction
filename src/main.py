@@ -35,7 +35,7 @@ INPUT_SEQUENCE_LENGTH_TIMESTEPS = 192 #also reasonable results with 96 but then 
 #   - 24 timesteps = 6 hours
 #   - 32 timesteps = 8 hours
 #   - 48 timesteps = 12 hours
-FORECAST_HORIZON_TIMESTEPS = 16
+FORECAST_HORIZON_TIMESTEPS = 24
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -49,6 +49,7 @@ def main():
 
     # 1️. Load Data
     weather_path = "data/data/weather_data_house_a_LUZ.csv"
+    # weather_path = None  # No weather data
     df = load_energy_hdf_to_pandas(
         "data/data/dfA_300s.hdf", 
         plot_data=False, 
@@ -118,7 +119,7 @@ def main():
     model, best_val_loss = train_model(
         model, train_loader, val_loader, 
         n_epochs=training_epochs, 
-        lr=1e-4, #standard: 1e-4
+        lr=3e-4, #standard: 1e-4
         device=device,
         use_scheduler=use_lr_scheduler
     )
