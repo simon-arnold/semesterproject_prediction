@@ -43,12 +43,12 @@ MODELS = {
     },
     'hor_16_temp': {
         'name': '16-step',
-        'path': 'NN_storage_hor_16/NN_storage/NN_weights/cnn_lstm_forecaster.pth',
-        'model_file': 'NN_storage_hor_16/NN_storage/cnn_lstm.py',
+        'path': 'NN_storage_hor_16/NN_storage_3/NN_weights/cnn_lstm_forecaster.pth',
+        'model_file': 'NN_storage_hor_16/NN_storage_3/cnn_lstm.py',
         'horizon': 16,
         'seq_len': 192,
         'use_temperature': True,
-        'color': 'red'
+        'color': 'orange'
     },
     'hor_24': {
         'name': '24-step',
@@ -274,7 +274,8 @@ def plot_model_comparison(models_data, df_test, plot_integral_difference=False):
         mse = np.mean((pred_timeline - target_timeline) ** 2)
         mae = np.mean(np.abs(pred_timeline - target_timeline))
         rmse = np.sqrt(mse)
-        print("   " + label + ": MSE = " + "{:.2f}".format(mse) + " W², MAE = " + "{:.2f}".format(mae) + " W, RMSE = " + "{:.2f}".format(rmse) + " W (" + str(n_samples) + " samples)")
+        mape = np.mean(np.abs(pred_timeline - target_timeline)/(target_timeline + 1e-8)) * 100  
+        print("   " + label + ": MSE = " + "{:.2f}".format(mse) + " W², MAE = " + "{:.2f}".format(mae) + " W, RMSE = " + "{:.2f}".format(rmse) + " W, MAPE = " + "{:.2f}".format(mape) + " % (" + str(n_samples) + " samples)")
         
         # Plot integral difference if requested
         if plot_integral_difference:
@@ -322,8 +323,8 @@ def main():
                         default='data/data/weather_data_house_a_LUZ.csv',
                         help='Path to weather CSV file (set to "none" to disable)')
     parser.add_argument('--models', type=str, nargs='+',
-                        default=['hor_24', 'hor_32', 'hor_48'],
-                        choices=['hor_24', 'hor_32', 'hor_48'],
+                        default=['hor_16_temp', 'hor_24', 'hor_32', 'hor_48'],
+                        choices=['hor_16_temp', 'hor_24', 'hor_32', 'hor_48'],
                         help='Models to compare')
     # parser.add_argument('--models', type=str, nargs='+',
     #                 default=['hor_16', 'hor_16_temp'],

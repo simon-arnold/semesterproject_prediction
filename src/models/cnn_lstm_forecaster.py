@@ -23,33 +23,30 @@ class CNN_LSTM_Forecaster(nn.Module):
         self.conv1 = nn.Conv1d(
             in_channels=input_dim,
             out_channels=32,
-            kernel_size=4, #Changed from 5->4 way faster training time
+            kernel_size=3, #Changed from 5->4 way faster training time
             stride=1,
             padding=2,
         )
         self.relu1 = nn.ReLU()
-        self.dropout1 = nn.Dropout(dropout_prob)
 
         self.conv2 = nn.Conv1d(
             in_channels=32,
             out_channels=64,
-            kernel_size=5,
+            kernel_size=3,
             stride=1,
             padding=2,
         )
         self.relu2 = nn.ReLU()
-        self.dropout2 = nn.Dropout(dropout_prob)
         self.pool2 = nn.MaxPool1d(kernel_size=2, stride=2)
 
         self.conv3 = nn.Conv1d(
             in_channels=64,
             out_channels=128,
-            kernel_size=5,
+            kernel_size=3,
             stride=1,
             padding=1,
         )
         self.relu3 = nn.ReLU()
-        self.dropout3 = nn.Dropout(dropout_prob)
         self.pool3 = nn.MaxPool1d(kernel_size=2, stride=2)
 
         # Previous configuration (64-100-128 filters without padding, each with pooling)
@@ -71,19 +68,17 @@ class CNN_LSTM_Forecaster(nn.Module):
         self.lstm_input_size = self.conv3.out_channels  # number of filters from last Conv layer
 
         # --- LSTM for temporal modeling ---
-        self.lstm = nn.LSTM(input_size=self.lstm_input_size, hidden_size=3*128, 
+        self.lstm = nn.LSTM(input_size=self.lstm_input_size, hidden_size=3*100, 
                            num_layers=1, batch_first=True, dropout=0.2)
-        
         self.dropout_lstm = nn.Dropout(dropout_prob)
 
         # --- Fully connected layers ---
         # Use ALL lstm outputs, not just last timestep
         # self.fc1 = nn.Linear(128 * conv_out_len, 256)  # Flatten all LSTM outputs
-        self.fc1 = nn.Linear(self.lstm.hidden_size, self.lstm.hidden_size)
+        self.fc1 = nn.Linear(self.lstm.hidden_size, 256)
         self.dropout_fc = nn.Dropout(dropout_prob)
-        self.fc112 = nn.Linear(self.lstm.hidden_size, 280)
-        self.fc2 = nn.Linear(280, 170)
-        self.fc3 = nn.Linear(170, output_dim)
+        self.fc2 = nn.Linear(256, 128)
+        self.fc3 = nn.Linear(128, output_dim)
 
     def _calc_conv_output(self, seq_len):
         """Helper to compute sequence length after three Conv+Pool stacks."""
@@ -120,10 +115,10 @@ class CNN_LSTM_Forecaster(nn.Module):
 
         # CNN feature extraction
         #current configuration
-        x = (self.relu1(self.conv1(x)))
-        x = (self.pool2(self.relu2(self.conv2(x))))
-        x = (self.pool3(self.relu3(self.conv3(x))))
-
+        x = self.relu1(self.conv1(x))
+        x = self.pool2(self.relu2(self.conv2(x)))
+        x = self.pool3(self.relu3(self.conv3(x)))
+        
         # previous configuration
         # x = self.pool1(self.relu1(self.conv1(x)))
         # x = self.pool2(self.relu2(self.conv2(x)))
@@ -145,7 +140,6 @@ class CNN_LSTM_Forecaster(nn.Module):
         # Fully connected layers
         x = nn.functional.relu(self.fc1(x))
         x = self.dropout_fc(x)
-        x = nn.functional.relu(self.fc112(x))
         x = nn.functional.relu(self.fc2(x))
         # out = self.fc3(x)  # Output layer
         out = torch.sigmoid(self.fc3(x))  # Sigmoid to constrain output to [0, 1]
