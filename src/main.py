@@ -37,7 +37,7 @@ INPUT_SEQUENCE_LENGTH_TIMESTEPS = 192 #also reasonable results with 96 but then 
 #   - 24 timesteps = 6 hours
 #   - 32 timesteps = 8 hours
 #   - 48 timesteps = 12 hours
-FORECAST_HORIZON_TIMESTEPS = 16
+FORECAST_HORIZON_TIMESTEPS = 24
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

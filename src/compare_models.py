@@ -52,8 +52,8 @@ MODELS = {
     },
     'hor_24': {
         'name': '24-step',
-        'path': 'NN_storage_hor_24/NN_storage_2/NN_weights/best_model.pth',
-        'model_file': 'NN_storage_hor_24/NN_storage_2/cnn_lstm.py',
+        'path': 'NN_storage_hor_24/NN_storage_5/NN_weights/best_model.pth',
+        'model_file': 'NN_storage_hor_24/NN_storage_5/cnn_lstm.py',
         'horizon': 24,
         'seq_len': 192,
         'use_temperature': True,
