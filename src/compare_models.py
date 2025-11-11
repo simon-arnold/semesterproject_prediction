@@ -24,8 +24,11 @@ RED = '\033[91m'
 GREEN = '\033[92m'
 YELLOW = '\033[93m'
 BLUE = '\033[94m'
+BRIGHT_BLUE = '\033[94;1m'
 CYAN = '\033[96m'
 RESET = '\033[0m'
+
+PRINT_DEBUG = False
 
 # Model configurations
 MODELS = {
@@ -94,7 +97,7 @@ def load_model_class(model_file_path):
     return module.CNN_LSTM_Forecaster
 
 
-def load_model(model_config, input_dim, device='cpu'):
+def load_model(model_config, input_dim, device='cpu', print_debug=True):
     """
     Load a model from configuration.
     
@@ -106,9 +109,11 @@ def load_model(model_config, input_dim, device='cpu'):
     Returns:
         Loaded model in eval mode
     """
-    print(f"{CYAN}🔄 Loading {model_config['name']}...{RESET}")
-    print(f"   Model file: {model_config['model_file']}")
-    print(f"   Weights: {model_config['path']}")
+    print(CYAN + "Loading " + model_config['name'] + "..." + RESET)
+    
+    if print_debug:
+        print("     Model file: " + model_config['model_file'])
+        print("     Weights: " + model_config['path'])
     
     # Load model class dynamically
     CNN_LSTM_Forecaster = load_model_class(model_config['model_file'])
@@ -122,14 +127,14 @@ def load_model(model_config, input_dim, device='cpu'):
     
     # Load weights
     if not os.path.exists(model_config['path']):
-        print(f"{RED}❌ Model weights not found: {model_config['path']}{RESET}")
+        print(RED + "Model weights not found: " + model_config['path'] + RESET)
         return None
     
     model.load_state_dict(torch.load(model_config['path'], map_location=device, weights_only=True))
     model.eval()
     
     total_params = sum(p.numel() for p in model.parameters())
-    print(f"{GREEN}✅ Model loaded: {total_params:,} parameters{RESET}\n")
+    print(GREEN + "Model loaded: " + format(total_params, ",") + " parameters" + RESET + "\n")
     
     return model
 
@@ -230,7 +235,7 @@ def plot_model_comparison(models_data, df_test, plot_integral_difference=False):
         df_test: Test dataframe with timestamps
         plot_integral_difference: Whether to plot cumulative error
     """
-    print(f"{CYAN}📊 Creating comparison plot...{RESET}")
+    print(CYAN + "Creating comparison plot..." + RESET)
     
     # Create figure
     if plot_integral_difference:
@@ -269,7 +274,7 @@ def plot_model_comparison(models_data, df_test, plot_integral_difference=False):
         mse = np.mean((pred_timeline - target_timeline) ** 2)
         mae = np.mean(np.abs(pred_timeline - target_timeline))
         rmse = np.sqrt(mse)
-        print(f"   {label}: MSE = {mse:.2f} W², MAE = {mae:.2f} W, RMSE = {rmse:.2f} W ({n_samples} samples)")
+        print("   " + label + ": MSE = " + "{:.2f}".format(mse) + " W², MAE = " + "{:.2f}".format(mae) + " W, RMSE = " + "{:.2f}".format(rmse) + " W (" + str(n_samples) + " samples)")
         
         # Plot integral difference if requested
         if plot_integral_difference:
@@ -304,6 +309,8 @@ def plot_model_comparison(models_data, df_test, plot_integral_difference=False):
     plt.tight_layout()
     plt.show(block=False)
     plt.pause(0.1)
+    
+    print(GREEN + "Comparison plot created." + RESET)
 
 
 def main():
@@ -332,35 +339,32 @@ def main():
     args = parser.parse_args()
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"{BLUE}{'='*60}{RESET}")
-    print(f"{BLUE}  CNN-LSTM Model Comparison{RESET}")
-    print(f"{BLUE}{'='*60}{RESET}\n")
-    print(f"  Using device: {device}")
-    print(f"  Models to compare: {', '.join(args.models)}\n")
+    print(BRIGHT_BLUE + ('=' * 60) + RESET)
+    print(BRIGHT_BLUE + "  CNN-LSTM Model Comparison" + RESET)
+    print(BRIGHT_BLUE + ('=' * 60) + RESET + "\n")
+    print("     Using device: " + str(device))
+    print("     Models to compare: " + ', '.join(args.models) + "\n")
 
     # Handle weather path
     weather_csv_path = None if args.weather_csv_path.lower() == 'none' else args.weather_csv_path
     
     # Load data
-    print(f"{CYAN}📊 Loading data from {args.data_path}...{RESET}")
+    print(CYAN + "Loading data from " + args.data_path + "..." + RESET)
     df = load_energy_hdf_to_pandas(
         args.data_path,
         weather_csv_path=weather_csv_path,
         plot_data=False,
-        use_cyclic_encoding=args.use_cyclic_encoding
+        use_cyclic_encoding=args.use_cyclic_encoding, 
+        print_debug=PRINT_DEBUG
     )
     
     has_temperature = 'Temperature' in df.columns
-    print(f"   Temperature available: {has_temperature}\n")
     
-    # Split data
-    df_train, df_val, df_test = split_dataframe(df, 0.7, 0.15, 0.15)
+    df_train, df_val, df_test = split_dataframe(df, 0.7, 0.15, 0.15, print_debug=PRINT_DEBUG)
     
-    # Determine max horizon for dataset creation
     max_horizon = max([MODELS[m]['horizon'] for m in args.models])
     max_seq_len = max([MODELS[m]['seq_len'] for m in args.models])
     
-    # Create dataset with largest horizon
     train_set = EnergyDataset(df_train, max_seq_len, max_horizon, 
                               normalize=True, scaler=None, 
                               use_cyclic_encoding=args.use_cyclic_encoding)
@@ -368,10 +372,13 @@ def main():
                             normalize=True, scaler=train_set.scaler,
                             use_cyclic_encoding=args.use_cyclic_encoding)
     
-    # Get input dimension
+    print(GREEN + "Data loaded and datasets created." + RESET)
+    
     input_dim = train_set.X.shape[2]
-    print(f"   Input features: {input_dim}")
-    print(f"   Features: {train_set.model_feature_cols}\n")
+    
+    if PRINT_DEBUG:
+        print("   Input features: " + str(input_dim))
+        print("   Features: " + str(train_set.model_feature_cols) + "\n")
     
     # Load models and generate predictions
     models_data = {}
@@ -381,7 +388,7 @@ def main():
         
         # For models without temperature, we need to prepare data without temperature
         if not config['use_temperature'] and has_temperature:
-            print(f"{YELLOW}Note: {config['name']} was trained WITHOUT temperature data{RESET}")
+            print(YELLOW + "Note: " + config['name'] + " was trained WITHOUT temperature data" + RESET)
             # Load data without temperature
             df_no_temp = load_energy_hdf_to_pandas(
                 args.data_path,
@@ -412,14 +419,14 @@ def main():
         # Load model
         model = load_model(config, model_input_dim, device)
         if model is None:
-            print(f"{YELLOW}⚠️  Skipping {config['name']}{RESET}\n")
+            print(YELLOW + "    Skipping " + config['name'] + RESET + "\n")
             continue
         
         # Create dataloader
         test_loader = DataLoader(test_set_model, batch_size=args.batch_size)
         
         # Generate predictions
-        print(f"{CYAN}📈 Generating predictions for {config['name']}...{RESET}")
+        print(CYAN + "Generating predictions for " + config['name'] + "..." + RESET)
         pred_timeline, target_timeline, pred_time_indices, n_samples = generate_continuous_predictions(
             model, test_loader, device, 
             config['horizon'], config['seq_len'],
@@ -427,10 +434,10 @@ def main():
         )
         
         models_data[model_key] = (pred_timeline, target_timeline, pred_time_indices, config, n_samples)
-        print(f"{GREEN}✅ Generated {n_samples} non-overlapping predictions ({len(pred_timeline)} timesteps){RESET}\n")
+        print(GREEN + "Generated " + str(n_samples) + " non-overlapping predictions (" + str(len(pred_timeline)) + " timesteps)" + RESET + "\n")
     
     if not models_data:
-        print(f"{RED}❌ No models loaded successfully{RESET}")
+        print(RED + "No models loaded successfully" + RESET)
         return
     
     # Plot comparison
@@ -440,7 +447,7 @@ def main():
     )
     
     # Wait for user input
-    input(f"\n{YELLOW}Press Enter to exit...{RESET}")
+    input("\n" + YELLOW + "Press Enter to exit..." + RESET)
 
 
 if __name__ == "__main__":

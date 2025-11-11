@@ -1,10 +1,15 @@
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
 import os
 
+CYAN = '\033[96m'
+GREEN = '\033[92m'
+RESET = '\033[0m'
 
-def load_weather_data(weather_csv_path):
+
+def load_weather_data(weather_csv_path, print_debug=True):
     """
     Load weather data from CSV and resample to 15-minute intervals.
     
@@ -20,7 +25,7 @@ def load_weather_data(weather_csv_path):
     Returns:
         DataFrame with DatetimeIndex and 'Temperature' column at 15-minute intervals
     """
-    print(f"\n📊 Loading weather data from: {weather_csv_path}")
+    print(CYAN + "Loading weather data from: " + RESET + weather_csv_path + "\n")
     
     # Load CSV with proper parsing
     df_weather = pd.read_csv(weather_csv_path, sep=';', decimal=',')
@@ -32,7 +37,7 @@ def load_weather_data(weather_csv_path):
     
     # Extract temperature column (tre200s0)
     if 'tre200s0' not in df_weather.columns:
-        raise ValueError(f"Column 'tre200s0' not found in weather data. Available columns: {df_weather.columns.tolist()}")
+        raise ValueError("Column 'tre200s0' not found in weather data. Available columns: " + str(df_weather.columns.tolist()))
     
     temperature = df_weather['tre200s0'].copy()
     
@@ -42,9 +47,11 @@ def load_weather_data(weather_csv_path):
     # Fill any NaN values
     temperature = temperature.ffill().bfill()
     
-    print(f"   Weather data loaded: {len(temperature)} records")
-    print(f"   Date range: {temperature.index[0]} to {temperature.index[-1]}")
-    print(f"   Temperature range: {temperature.min():.1f}°C to {temperature.max():.1f}°C")
+    print(GREEN + "Weather data loaded: " + RESET + str(len(temperature)) + " records\n")
+    
+    if print_debug:
+        print("     Date range: " + str(temperature.index[0]) + " to " + str(temperature.index[-1]))
+        print("     Temperature range: " + "{:.1f}".format(temperature.min()) + "°C to " + "{:.1f}".format(temperature.max()) + "°C")
     
     # Create 15-minute resampled data
     temp_15min = pd.Series(dtype=float)
@@ -101,14 +108,15 @@ def load_weather_data(weather_csv_path):
     # Fill any remaining NaN values
     temp_15min = temp_15min.ffill().bfill()
     
-    print(f"   Resampled to 15-minute intervals: {len(temp_15min)} records")
-    print(f"   NaN values after resampling: {temp_15min.isna().sum()}")
+    if print_debug:
+        print("     Resampled to 15-minute intervals: " + str(len(temp_15min)) + " records")
+        print("     NaN values after resampling: " + str(temp_15min.isna().sum()))
     
     return pd.DataFrame({'Temperature': temp_15min})
 
 
 def load_energy_hdf_to_pandas(h5_file_path, plot_data=True, use_time_axis=True, use_cyclic_encoding=True, 
-                              weather_csv_path=None):
+                              weather_csv_path=None, print_debug=True):
     """
     Load the HDF5 file and return a DataFrame with smoothed 15-minute timesteps.
     Computes 'Load' = A_total_cons_power - A_sauna_power.
@@ -133,7 +141,9 @@ def load_energy_hdf_to_pandas(h5_file_path, plot_data=True, use_time_axis=True, 
     # Check for NaN or zero values before any processing
     n_nan_raw = df_raw['A_total_cons_power'].isna().sum().sum()
     n_zero_raw = (df_raw == 0).sum().sum()
-    print(f"Raw data check: {n_nan_raw} NaN values, {n_zero_raw} zeros in the raw dataset")
+    
+    if print_debug:
+        print("     Raw data check: " + str(n_nan_raw) + " NaN values, " + str(n_zero_raw) + " zeros in the raw dataset")
 
     # ensure datetime index (important for plotting time on the x-axis)
     df_raw.index = pd.to_datetime(df_raw.index)
@@ -193,24 +203,20 @@ def load_energy_hdf_to_pandas(h5_file_path, plot_data=True, use_time_axis=True, 
     
     # --- Merge weather data if provided ---
     if weather_csv_path is not None:
-        print("\n🌡️  Integrating weather data...")
-        df_weather = load_weather_data(weather_csv_path)
+        df_weather = load_weather_data(weather_csv_path, print_debug=print_debug)
         
         # Merge on index (timestamps must match exactly)
         df_final = df_final.join(df_weather, how='inner')
         
-        print(f"   Merged dataframe shape: {df_final.shape}")
-        print(f"   Temperature column added: {df_final['Temperature'].notna().sum()} valid values")
-        print(f"   Temperature stats: mean={df_final['Temperature'].mean():.1f}°C, "
-              f"std={df_final['Temperature'].std():.1f}°C, "
-              f"min={df_final['Temperature'].min():.1f}°C, "
-              f"max={df_final['Temperature'].max():.1f}°C")
+        if print_debug:
+            print("     Merged dataframe shape: " + str(df_final.shape))
+            print("     Temperature column added: " + str(df_final['Temperature'].notna().sum()) + " valid values")
+            print("     Temperature stats: mean=" + "{:.1f}".format(df_final['Temperature'].mean()) + "°C, "
+                + "std=" + "{:.1f}".format(df_final['Temperature'].std()) + "°C, "
+                + "min=" + "{:.1f}".format(df_final['Temperature'].min()) + "°C, "
+                + "max=" + "{:.1f}".format(df_final['Temperature'].max()) + "°C\n")
     
-    print(f"\n📋 Final dataset info:")
-    print(f"   Total records: {len(df_final)}")
-    print(f"   Columns: {list(df_final.columns)}")
-    print(df_final.head(5))
-
+    
     if plot_data:
         if use_time_axis:
             import matplotlib.dates as mdates
@@ -236,7 +242,13 @@ def load_energy_hdf_to_pandas(h5_file_path, plot_data=True, use_time_axis=True, 
     n_nan_final = df_final.isna().sum().sum()
     n_zero_final = (df_final == 0).sum().sum()
     n_neg_final = (df_final < 0).sum().sum()
-    print(f"Final data after cleaning check: {n_nan_final} NaN values, {n_zero_final} zeros, {n_neg_final} negative values in the final dataset")
+    
+    if print_debug:
+        print("Final dataset info:")
+        print("   Total records: " + str(len(df_final)))
+        print("   Columns: " + str(list(df_final.columns)))
+        print(df_final.head(5))
+        print("Final data after cleaning check: " + str(n_nan_final) + " NaN values, " + str(n_zero_final) + " zeros, " + str(n_neg_final) + " negative values in the final dataset")
     
     # Print rows with NaN values and their surrounding rows
     if n_nan_final > 0:
@@ -249,24 +261,24 @@ def load_energy_hdf_to_pandas(h5_file_path, plot_data=True, use_time_axis=True, 
             # Get previous row (if exists)
             if idx_pos > 0:
                 prev_idx = df_final.index[idx_pos - 1]
-                print(f"\nPrevious row ({prev_idx}):")
+                print("\nPrevious row (" + str(prev_idx) + "):")
                 print(df_final.loc[prev_idx])
             
             # Current row with NaN
-            print(f"\nRow with NaN ({idx}):")
+            print("\nRow with NaN (" + str(idx) + "):")
             print(df_final.loc[idx])
             
             # Get next row (if exists)
             if idx_pos < len(df_final) - 1:
                 next_idx = df_final.index[idx_pos + 1]
-                print(f"\nNext row ({next_idx}):")
+                print("\nNext row (" + str(next_idx) + "):")
                 print(df_final.loc[next_idx])
             
             print("-" * 50)
 
     return df_final
 
-def split_dataframe(df, train_frac=0.7, val_frac=0.15, test_frac=0.15):
+def split_dataframe(df, train_frac=0.7, val_frac=0.15, test_frac=0.15, print_debug=True):
     """
     Chronological split of a dataframe into train/val/test sets.
     Ensures no overlap between splits.
@@ -281,11 +293,11 @@ def split_dataframe(df, train_frac=0.7, val_frac=0.15, test_frac=0.15):
     df_val   = df.iloc[ntrain:ntrain+nval]
     df_test  = df.iloc[ntrain+nval:]
 
-    print(f"\nDataset split:")
-    print(f"  Train: {len(df_train)} samples ({train_frac*100:.0f}%)")
-    print(f"  Val:   {len(df_val)} samples ({val_frac*100:.0f}%)")
-    print(f"  Test:  {len(df_test)} samples ({test_frac*100:.0f}%)")
-
+    if print_debug:
+        print(f"\nDataset split:")
+        print(f"  Train: {len(df_train)} samples ({train_frac*100:.0f}%)")
+        print(f"  Val:   {len(df_val)} samples ({val_frac*100:.0f}%)")
+        print(f"  Test:  {len(df_test)} samples ({test_frac*100:.0f}%)")
     return df_train, df_val, df_test
 
 
@@ -296,8 +308,8 @@ if __name__ == "__main__":
     Figure 1: Alle Features, die das Dataset rausgibt
     Figure 2: Alle einzelnen Verbrauchskomponenten aus df_raw
     """
-    import matplotlib.dates as mdates
-    
+
+
     # Pfade
     h5_file = "data/data/dfA_300s.hdf"
     weather_csv = "data/data/weather_data_house_a_LUZ.csv"
@@ -338,7 +350,7 @@ if __name__ == "__main__":
     # =====================================================================
     # FIGURE 1: Alle Features die das Dataset rausgibt
     # =====================================================================
-    print("\n📊 Creating Figure 1: All Dataset Features...")
+    print("\nCreating Figure 1: All Dataset Features...")
     
     fig1, axes1 = plt.subplots(4, 2, figsize=(16, 14))
     fig1.suptitle('Figure 1: Alle Features vom Energy-Dataset (7 Tage)', fontsize=16, fontweight='bold')
@@ -445,7 +457,7 @@ if __name__ == "__main__":
     # =====================================================================
     # FIGURE 2: Alle einzelnen Verbrauchskomponenten aus df_raw
     # =====================================================================
-    print("📊 Creating Figure 2: Raw Power Components...")
+    print("Creating Figure 2: Raw Power Components...")
     
     fig2, axes2 = plt.subplots(4, 2, figsize=(16, 12))
     fig2.suptitle('Figure 2: Alle Verbrauchskomponenten (Raw Data, 7 Tage)', fontsize=16, fontweight='bold')
@@ -476,7 +488,7 @@ if __name__ == "__main__":
     
     plt.tight_layout()
     
-    print("\n✅ Plots erstellt! Fenster werden angezeigt...")
+    print("\nPlots erstellt! Fenster werden angezeigt...")
     print("   Figure 1: Alle Features vom Dataset")
     print("   Figure 2: Alle Raw-Verbrauchskomponenten")
     

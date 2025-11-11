@@ -375,7 +375,7 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
     num_samples = len(all_preds)
     samples_per_second = num_samples / inference_time if inference_time > 0 else 0
     
-    print(f"{GREEN}⏱️  Prediction Performance:{RESET}")
+    print(f"{GREEN}Prediction Performance:{RESET}")
     print(f"   Total prediction samples: {num_samples} (each predicts {output_horizon} timesteps ahead)")
     print(f"   Prediction time: {inference_time:.4f} seconds")
     print(f"   Throughput: {samples_per_second:.1f} samples/second")

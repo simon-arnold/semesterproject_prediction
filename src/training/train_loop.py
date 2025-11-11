@@ -7,6 +7,10 @@ import os
 from torch.utils.tensorboard.writer import SummaryWriter
 from datetime import datetime
 
+YELLOW = '\033[93m'
+GREEN = '\033[92m'
+RESET = '\033[0m'
+
 
 def train_model(model, train_loader, val_loader, n_epochs=20, lr=1e-4, device="cpu", 
                 save_path="NN_storage/NN_weights/best_model.pth", log_dir=None, use_scheduler=True,
@@ -46,11 +50,11 @@ def train_model(model, train_loader, val_loader, n_epochs=20, lr=1e-4, device="c
             verbose=True,         # Print message when LR is reduced
             min_lr=1e-7          # Don't reduce LR below this value
         )
-        print("📉 LR Scheduler enabled (ReduceLROnPlateau: factor=0.5, patience=5)")
+        print(YELLOW + "LR Scheduler enabled (ReduceLROnPlateau: factor=0.5, patience=5)" + RESET)
     else:
-        print("📊 LR Scheduler disabled (constant learning rate)")
+        print(YELLOW + "LR Scheduler disabled (constant learning rate)" + RESET)
 
-    print(f"⚖️ Weight decay (L2): {weight_decay:.2e}")
+    print(YELLOW + "Weight decay (L2): " + "{:.2e}".format(weight_decay) + RESET)
 
     best_val_loss = float('inf')
     train_losses, val_losses = [], []
@@ -61,8 +65,8 @@ def train_model(model, train_loader, val_loader, n_epochs=20, lr=1e-4, device="c
         log_dir = f"runs/load_predictor_{timestamp}"
     
     writer = SummaryWriter(log_dir=log_dir)
-    print(f"📊 TensorBoard logs will be saved to: {log_dir}")
-    print(f"   Run: tensorboard --logdir=runs")
+    print("TensorBoard logs will be saved to: " + str(log_dir))
+    print("   Run: tensorboard --logdir=runs\n")
 
     os.makedirs(os.path.dirname(save_path), exist_ok=True)
     
@@ -74,7 +78,7 @@ def train_model(model, train_loader, val_loader, n_epochs=20, lr=1e-4, device="c
         dummy_input = torch.randn(1, train_loader.dataset.seq_len, input_dim).to(device)
         writer.add_graph(model, dummy_input)
     except Exception as e:
-        print(f"⚠️  Could not log model graph: {e}")
+        print(YELLOW + "Could not log model graph: " + str(e) + RESET)
     
     # Log hyperparameters
     writer.add_text('Hyperparameters', 
@@ -136,7 +140,7 @@ def train_model(model, train_loader, val_loader, n_epochs=20, lr=1e-4, device="c
         total_norm = total_norm ** 0.5
         writer.add_scalar('Gradient/norm', total_norm, epoch)
 
-        print(f"Epoch {epoch+1:02d}/{n_epochs} | Train Loss: {train_loss:.6f} | Val Loss: {val_loss:.6f} | LR: {current_lr:.2e}")
+        print("Epoch " + "{epoch:02d}".format(epoch=epoch+1) + "/" + str(n_epochs) + " | Train Loss: " + "{:.6f}".format(train_loss) + " | Val Loss: " + "{:.6f}".format(val_loss) + " | LR: " + "{:.2e}".format(current_lr))
 
         # Update learning rate based on validation loss (if scheduler is enabled)
         if scheduler is not None:
@@ -147,11 +151,11 @@ def train_model(model, train_loader, val_loader, n_epochs=20, lr=1e-4, device="c
             best_val_loss = val_loss
             torch.save(model.state_dict(), save_path)
             writer.add_scalar('Best_Val_Loss', best_val_loss, epoch)
-            print(f"  ✅ New best model saved ({save_path})")
+            print("     " + GREEN + "New best model saved (" + save_path + ")" + RESET)
 
     final_lr = optimizer.param_groups[0]['lr']
-    print(f"\nTraining finished. Best Validation Loss: {best_val_loss:.6f}")
-    print(f"Final Learning Rate: {final_lr:.2e} (started at {lr:.2e})")
+    print("\nTraining finished. Best Validation Loss: " + "{:.6f}".format(best_val_loss))
+    print("Final Learning Rate: " + "{:.2e}".format(final_lr) + " (started at " + "{:.2e}".format(lr) + ")")
     
     # Log final hyperparameters with results
     writer.add_hparams(
@@ -169,7 +173,7 @@ def train_model(model, train_loader, val_loader, n_epochs=20, lr=1e-4, device="c
     
     # Close the writer
     writer.close()
-    print(f"📊 TensorBoard logs saved. View with: tensorboard --logdir=runs")
+    print(GREEN + "TensorBoard logs saved. View with: tensorboard --logdir=runs" + RESET)
 
     # Load best weights back
     model.load_state_dict(torch.load(save_path, weights_only=True, map_location=device))

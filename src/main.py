@@ -9,6 +9,8 @@ import torch
 import os
 
 YELLOW = '\033[93m'
+GREEN = '\033[92m'
+CYAN = '\033[96m'
 RESET = '\033[0m'
 
 store_onnx = True  
@@ -39,13 +41,13 @@ FORECAST_HORIZON_TIMESTEPS = 48
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    print(f"Using device: {device}")
+    print("Using device: " + str(device))
     
     # Display encoding mode (will be updated after data loading if temperature is available)
     if use_cyclic_encoding:
-        print(f"{YELLOW}🔄 Feature Encoding: CYCLIC (8+ features: Year + 6 cyclic + Load + ...){RESET}")
+        print(YELLOW + "Feature Encoding: CYCLIC (8+ features: Year + 6 cyclic + Load + ...)" + RESET)
     else:
-        print(f"{YELLOW}📊 Feature Encoding: RAW (6+ features: Year, Month, Day, Weekday, Timestep, Load + ...){RESET}")
+        print(YELLOW + "Feature Encoding: RAW (6+ features: Year, Month, Day, Weekday, Timestep, Load + ...)" + RESET)
 
     # 1️. Load Data
     weather_path = "data/data/weather_data_house_a_LUZ.csv"
@@ -64,18 +66,18 @@ def main():
     seq_len = INPUT_SEQUENCE_LENGTH_TIMESTEPS  # Use configured input sequence length
     output_horizon = FORECAST_HORIZON_TIMESTEPS  # Use configured forecast horizon
     
-    print(f"\n📊 Dataset Configuration:")
-    print(f"   Input sequence length: {seq_len} timesteps ({seq_len/4:.1f} hours = {seq_len/96:.1f} days)")
-    print(f"   Forecast horizon: {output_horizon} timesteps ({output_horizon/4:.1f} hours)")
+    print("\nDataset Configuration:")
+    print("     Input sequence length: " + str(seq_len) + " timesteps (" + "{:.1f}".format(seq_len/4) + " hours = " + "{:.1f}".format(seq_len/96) + " days)")
+    print("     Forecast horizon: " + str(output_horizon) + " timesteps (" + "{:.1f}".format(output_horizon/4) + " hours)")
     
     # IMPORTANT: Fit scaler on training data, then reuse for val/test!
     train_set = EnergyDataset(df_train, seq_len, output_horizon, normalize=True, scaler=None, use_cyclic_encoding=use_cyclic_encoding)
     val_set = EnergyDataset(df_val, seq_len, output_horizon, normalize=True, scaler=train_set.scaler, use_cyclic_encoding=use_cyclic_encoding)
     test_set = EnergyDataset(df_test, seq_len, output_horizon, normalize=True, scaler=train_set.scaler, use_cyclic_encoding=use_cyclic_encoding)
     
-    print(f"\n✅ Scaler fitted on training data:")
-    print(f"   Min values: {train_set.scaler.data_min_}")
-    print(f"   Max values: {train_set.scaler.data_max_}")
+    print("\nScaler fitted on training data:")
+    print("     Min values: " + str(train_set.scaler.data_min_))
+    print("     Max values: " + str(train_set.scaler.data_max_))
 
     # 4️. DataLoaders
     batch_size = 32 # standard: 32
@@ -107,14 +109,15 @@ def main():
             input_dim = 7  # Add Temperature
             feature_description += " + Temperature"
     
-    print(f"\n🔧 Model configuration:")
-    print(f"   Cyclic encoding: {use_cyclic_encoding}")
-    print(f"   Input features ({input_dim}): {feature_description}")
+    print("\nModel configuration:")
+    print("     Cyclic encoding: " + str(use_cyclic_encoding))
+    print("     Input features (" + str(input_dim) + "): " + feature_description)
     
     model = CNN_LSTM_Forecaster(input_dim=input_dim, seq_len=seq_len, output_dim=output_horizon).to(device)
     input_size = (batch_size, seq_len, input_dim)
-    print("\n🧠 Model Summary:")
+    print("\nModel Summary:")
     summary(model, input_size=input_size, device=str(device))
+    print("\n")
     
     model, best_val_loss = train_model(
         model, train_loader, val_loader, 
@@ -130,7 +133,7 @@ def main():
     
     pth_path = os.path.join(save_dir, "cnn_lstm_forecaster.pth")
     torch.save(model.state_dict(), pth_path)
-    print(f" Model saved as PyTorch weights: {pth_path}")
+    print("Model saved as PyTorch weights: " + pth_path)
     
     
     if store_onnx:
@@ -160,9 +163,9 @@ def main():
                 'output': {0: 'batch_size'}
             }
         )
-        print(f"✅ Model exported as ONNX: {onnx_path}")
-        print(f"   Input shape: [batch_size, {seq_len}, {input_dim}]  ({input_dim} features: {feature_description})")
-        print(f"   Output shape: [batch_size, {output_horizon}]")
+    print("Model exported as ONNX: " + onnx_path)
+    print("     Input shape: [batch_size, " + str(seq_len) + ", " + str(input_dim) + "]  (" + str(input_dim) + " features: " + feature_description + ")")
+    print("     Output shape: [batch_size, " + str(output_horizon) + "]")
 
     # 7️. Evaluate
     test_metrics = evaluate_model(model, test_loader, device)
@@ -170,7 +173,7 @@ def main():
     
         
     # Wait for user input before closing
-    input(f"\n{YELLOW}Press Enter to exit...{RESET}")
+    input("\n" + YELLOW + "Press Enter to exit..." + RESET)
 
 if __name__ == "__main__":
     main()

@@ -54,7 +54,7 @@ def load_test_data(data_path="data/data/dfA_300s.hdf", weather_csv_path="data/da
         df_test: Raw test dataframe
         input_dim: Number of input features (auto-detected)
     """
-    print(f"{CYAN}📊 Loading data from {data_path}...{RESET}")
+    print(f"{CYAN}Loading data from {data_path}...{RESET}")
     
     # Load energy data with optional weather data
     df = load_energy_hdf_to_pandas(
@@ -68,9 +68,9 @@ def load_test_data(data_path="data/data/dfA_300s.hdf", weather_csv_path="data/da
     has_temperature = 'Temperature' in df.columns
     
     if has_temperature:
-        print(f"{GREEN}🌡️  Temperature data found and will be used!{RESET}")
+        print(f"{GREEN}Temperature data found and will be used!{RESET}")
     else:
-        print(f"{YELLOW}⚠️  No Temperature data found, using only temporal features.{RESET}")
+        print(f"{YELLOW}No Temperature data found, using only temporal features.{RESET}")
     
     # Split (same splits as training)
     df_train, df_val, df_test = split_dataframe(df, 0.7, 0.15, 0.15)
@@ -82,13 +82,13 @@ def load_test_data(data_path="data/data/dfA_300s.hdf", weather_csv_path="data/da
     # Auto-detect input_dim from dataset
     input_dim = train_set.X.shape[2]  # Shape: (n_samples, seq_len, n_features)
     
-    print(f"{CYAN}📋 Data Configuration:{RESET}")
+    print(f"{CYAN}Data Configuration:{RESET}")
     print(f"   Feature encoding: {'CYCLIC' if USE_CYCLIC_ENCODING else 'RAW'}")
     print(f"   Temperature: {'✓ Included' if has_temperature else '✗ Not included'}")
     print(f"   Input features (input_dim): {input_dim}")
     print(f"   Features: {train_set.model_feature_cols}")
     
-    print(f"\n{CYAN}📊 Scaler info (fitted on training data):{RESET}")
+    print(f"\n{CYAN}Scaler info (fitted on training data):{RESET}")
     print(f"   Min: {train_set.scaler.data_min_}")
     print(f"   Max: {train_set.scaler.data_max_}")
     print(f"   Train samples: {len(df_train)}")
@@ -98,7 +98,7 @@ def load_test_data(data_path="data/data/dfA_300s.hdf", weather_csv_path="data/da
     # Create DataLoader
     test_loader = DataLoader(test_set, batch_size=64)
     
-    print(f"{GREEN}✅ Data loaded successfully!{RESET}\n")
+    print(f"{GREEN}Data loaded successfully!{RESET}\n")
 
     return test_loader, train_set.scaler, train_set, test_set, df_train, df_val, df_test, input_dim
 
@@ -117,7 +117,7 @@ def load_model(model_path, input_dim, seq_len=192, output_horizon=16, device='cp
     Returns:
         model: Loaded model in eval mode
     """
-    print(f"{CYAN}🔄 Loading model from {model_path}...{RESET}")
+    print(f"{CYAN}Loading model from {model_path}...{RESET}")
     
     model = CNN_LSTM_Forecaster(
         input_dim=input_dim, 
@@ -132,7 +132,7 @@ def load_model(model_path, input_dim, seq_len=192, output_horizon=16, device='cp
     total_params = sum(p.numel() for p in model.parameters())
     trainable_params = sum(p.numel() for p in model.parameters() if p.requires_grad)
     
-    print(f"{GREEN}✅ Model loaded successfully!{RESET}")
+    print(f"{GREEN}Model loaded successfully!{RESET}")
     print(f"   Total parameters: {total_params:,}")
     print(f"   Trainable parameters: {trainable_params:,}")
     print(f"   Input features: {input_dim}")
@@ -186,9 +186,9 @@ def main():
     
     # Display encoding mode
     if USE_CYCLIC_ENCODING:
-        print(f"  {YELLOW}🔄 Feature Encoding: CYCLIC{RESET}")
+        print(f"  {YELLOW}Feature Encoding: CYCLIC{RESET}")
     else:
-        print(f"  {YELLOW}📊 Feature Encoding: RAW{RESET}")
+        print(f"  {YELLOW}Feature Encoding: RAW{RESET}")
     
     print(f"{BLUE}{'='*60}{RESET}\n")
 
@@ -203,7 +203,7 @@ def main():
     )
     
     if not os.path.exists(args.model_path):
-        print(f"{RED}❌ Error: Model not found at {args.model_path}{RESET}")
+        print(f"{RED}Error: Model not found at {args.model_path}{RESET}")
         print(f"{RED}   Please train a model first or specify correct path with --model_path{RESET}")
         return
     
@@ -240,7 +240,7 @@ def main():
     
     # Plot predictions over full training set
     if args.plot_full_train:
-        print(f"{CYAN}📊 Plotting predictions over full training set...{RESET}")
+        print(f"{CYAN}Plotting predictions over full training set...{RESET}")
         train_loader = DataLoader(train_set, batch_size=args.batch_size)
         
         # Calculate integral_reset_interval from timesteps
