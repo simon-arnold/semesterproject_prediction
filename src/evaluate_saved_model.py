@@ -12,6 +12,7 @@ Example usage:
 
 from data_processing.EnergyDataset import EnergyDataset
 from data_processing.data_utils import load_energy_hdf_to_pandas, split_dataframe
+from data_processing.data_utils_2nd_house import load_energy_hdf_to_pandas_2nd_house
 from models.cnn_lstm_forecaster import CNN_LSTM_Forecaster
 from training.evaluate import evaluate_model, plot_full_test_set_predictions, plot_raw_dataframe, plot_multiple_predictions_at_date
 from torch.utils.data import DataLoader
@@ -32,6 +33,8 @@ RESET = '\033[0m'
 # ========================================
 # Set this to match the encoding used when training the model!
 USE_CYCLIC_ENCODING = True  # True: 8 features (cyclic), False: 6 features (raw)
+
+USE_HOUSE = 'E'  # Options: 'A' or 'E' (2nd house)
 
 
 def load_test_data(data_path="data/data/dfA_300s.hdf", weather_csv_path="data/data/weather_data_house_a_LUZ.csv", seq_len=192, output_horizon=16):
@@ -57,12 +60,28 @@ def load_test_data(data_path="data/data/dfA_300s.hdf", weather_csv_path="data/da
     print(f"{CYAN}Loading data from {data_path}...{RESET}")
     
     # Load energy data with optional weather data
-    df = load_energy_hdf_to_pandas(
-        data_path, 
-        weather_csv_path=weather_csv_path,
-        plot_data=False, 
-        use_cyclic_encoding=USE_CYCLIC_ENCODING
-    )
+    if USE_HOUSE == 'A':
+        
+        df = load_energy_hdf_to_pandas(
+            "data/data/dfA_300s.hdf", 
+            plot_data=False, 
+            use_cyclic_encoding=USE_CYCLIC_ENCODING,
+            weather_csv_path=weather_csv_path, 
+            print_debug=True
+        )
+        
+    elif USE_HOUSE == 'E':
+        
+        df = load_energy_hdf_to_pandas_2nd_house(
+            "data/data/dfE_300s.hdf", 
+            plot_data=False, 
+            use_cyclic_encoding=USE_CYCLIC_ENCODING,
+            weather_csv_path=weather_csv_path, 
+            print_debug=True
+        )
+    
+    else:
+        raise ValueError("Invalid USE_HOUSE value. Choose 'A' or 'E'.")
     
     # Detect if Temperature column exists
     has_temperature = 'Temperature' in df.columns
@@ -177,6 +196,9 @@ def main():
                         help='Number of timesteps after which cumulative integral difference resets (default: None = reset after each forecast horizon)')
     
     args = parser.parse_args()
+    
+    print(RED + "\n Using House " + USE_HOUSE + " for training/evaluation." + RESET)
+    print(RED + " Using a forecast horizon of " + str(args.output_horizon) + " timesteps (" + "{:.1f}".format(args.output_horizon/4) + " hours).\n" + RESET)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"{BLUE}{'='*60}{RESET}")

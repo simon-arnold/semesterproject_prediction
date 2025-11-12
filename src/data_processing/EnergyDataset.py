@@ -6,6 +6,7 @@ from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
 
 YELLOW = '\033[93m'
+RED = '\033[91m'
 RESET = '\033[0m'
 
 # from rich.traceback import install
@@ -71,9 +72,9 @@ class EnergyDataset(Dataset):
         # Check if required columns exist in DataFrame
         missing_cols = set(self.model_feature_cols) - set(df.columns)
         if missing_cols:
-            raise ValueError(f"❌ Missing required columns in DataFrame: {missing_cols}\n"
+            raise ValueError(RED +  f" Missing required columns in DataFrame: {missing_cols}\n"
                            f"   Available columns: {list(df.columns)}\n"
-                           f"   Required columns: {self.model_feature_cols}")
+                           f"   Required columns: {self.model_feature_cols}" + RESET)
         
         # Optional normalization
         self.scaler = scaler

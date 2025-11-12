@@ -18,6 +18,7 @@ import matplotlib.pyplot as plt
 from torch.utils.data import DataLoader
 from data_processing.EnergyDataset import EnergyDataset
 from data_processing.data_utils import load_energy_hdf_to_pandas, split_dataframe
+from data_processing.data_utils_2nd_house import load_energy_hdf_to_pandas_2nd_house
 
 # ANSI Color codes for terminal output
 RED = '\033[91m'
@@ -30,10 +31,12 @@ RESET = '\033[0m'
 
 PRINT_DEBUG = False
 
+HOUSE_TYPE = 'E'  # Options: 'A' or 'E' (2nd house)
+
 # Model configurations
 MODELS = {
-    'hor_16': {
-        'name': '16-step (no temp)',
+    'hor_16_A': {
+        'name': '16-step (no temp) A',
         'path': 'NN_storage_good_model/NN_weights/cnn_lstm_forecaster.pth',
         'model_file': 'NN_storage_good_model/cnn_lstm.py',
         'horizon': 16,
@@ -41,42 +44,80 @@ MODELS = {
         'use_temperature': False,
         'color': 'black'
     },
-    'hor_16_temp': {
-        'name': '16-step',
-        'path': 'NN_storage_hor_16/NN_storage_3/NN_weights/cnn_lstm_forecaster.pth',
-        'model_file': 'NN_storage_hor_16/NN_storage_3/cnn_lstm.py',
+    'hor_16_temp_A': {
+        'name': '16-step A',
+        'path': 'house_A/NN_storage_hor_16/NN_storage_3/NN_weights/cnn_lstm_forecaster.pth',
+        'model_file': 'house_A/NN_storage_hor_16/NN_storage_3/cnn_lstm.py',
         'horizon': 16,
         'seq_len': 192,
         'use_temperature': True,
         'color': 'orange'
     },
-    'hor_24': {
-        'name': '24-step',
-        'path': 'NN_storage_hor_24/NN_storage_5/NN_weights/best_model.pth',
-        'model_file': 'NN_storage_hor_24/NN_storage_5/cnn_lstm.py',
+    'hor_24_A': {
+        'name': '24-step A',
+        'path': 'house_A/NN_storage_hor_24/NN_storage_5/NN_weights/best_model.pth',
+        'model_file': 'house_A/NN_storage_hor_24/NN_storage_5/cnn_lstm.py',
         'horizon': 24,
         'seq_len': 192,
         'use_temperature': True,
         'color': 'green'
     },
-    'hor_32': {
-        'name': '32-step',
-        'path': 'NN_storage_hor_32/NN_storage_2/NN_weights/best_model.pth',
-        'model_file': 'NN_storage_hor_32/NN_storage_2/cnn_lstm.py',
+    'hor_32_A': {
+        'name': '32-step A',
+        'path': 'house_A/NN_storage_hor_32/NN_storage_8/NN_weights/best_model.pth',
+        'model_file': 'house_A/NN_storage_hor_32/NN_storage_8/cnn_lstm.py',
         'horizon': 32,
         'seq_len': 192,
         'use_temperature': True,
         'color': 'black'
     },
-    'hor_48': {
-        'name': '48-step',
-        'path': 'NN_storage_hor_48/NN_storage/NN_weights/best_model.pth',
-        'model_file': 'NN_storage_hor_48/NN_storage/cnn_lstm.py',
+    'hor_48_A': {
+        'name': '48-step A',
+        'path': 'house_A/NN_storage_hor_48/NN_storage_3/NN_weights/best_model.pth',
+        'model_file': 'house_A/NN_storage_hor_48/NN_storage_3/cnn_lstm.py',
         'horizon': 48,
         'seq_len': 192,
         'use_temperature': True,
         'color': 'red'
-    }
+    },
+    'hor_16_E': {
+        'name': '16-step E',
+        'path': 'house_E/NN_storage_hor_16/NN_storage_1/NN_weights/cnn_lstm_forecaster.pth',
+        'model_file': 'house_E/NN_storage_hor_16/NN_storage_1/cnn_lstm.py',
+        'horizon': 16,
+        'seq_len': 192,
+        'use_temperature': True,
+        'color': 'orange'
+    },
+    'hor_24_E': {
+        'name': '24-step E',
+        'path': 'house_E/NN_storage_hor_24/NN_storage_1/NN_weights/best_model.pth',
+        'model_file': 'house_E/NN_storage_hor_24/NN_storage_1/cnn_lstm.py',
+        'horizon': 24,
+        'seq_len': 192,
+        'use_temperature': True,
+        'color': 'green'
+    },
+        'hor_32_E': {
+        'name': '32-step E',
+        'path': 'house_E/NN_storage_hor_32/NN_storage_3/NN_weights/best_model.pth',
+        'model_file': 'house_E/NN_storage_hor_32/NN_storage_3/cnn_lstm.py',
+        'horizon': 32,
+        'seq_len': 192,
+        'use_temperature': True,
+        'color': 'black'
+    },
+        'hor_48_E': {
+        'name': '48-step E',
+        'path': 'house_E/NN_storage_hor_48/NN_storage_3/NN_weights/best_model.pth',
+        'model_file': 'house_E/NN_storage_hor_48/NN_storage_3/cnn_lstm.py',
+        'horizon': 48,
+        'seq_len': 192,
+        'use_temperature': True,
+        'color': 'red'
+    },
+
+
 }
 
 
@@ -322,14 +363,14 @@ def main():
     parser.add_argument('--weather_csv_path', type=str,
                         default='data/data/weather_data_house_a_LUZ.csv',
                         help='Path to weather CSV file (set to "none" to disable)')
-    parser.add_argument('--models', type=str, nargs='+',
-                        default=['hor_16_temp', 'hor_24', 'hor_32', 'hor_48'],
-                        choices=['hor_16_temp', 'hor_24', 'hor_32', 'hor_48'],
-                        help='Models to compare')
     # parser.add_argument('--models', type=str, nargs='+',
-    #                 default=['hor_16', 'hor_16_temp'],
-    #                 choices=['hor_16', 'hor_16_temp'],
-    #                 help='Models to compare')
+    #                     default=['hor_16_temp_A', 'hor_24_A', 'hor_32_A', 'hor_48_A'],
+    #                     choices=['hor_16_temp_A', 'hor_24_A', 'hor_32_A', 'hor_48_A'],
+    #                     help='Models to compare')
+    parser.add_argument('--models', type=str, nargs='+',
+                    default=['hor_16_E', 'hor_24_E', 'hor_32_E', 'hor_48_E'],
+                    choices=['hor_16_E', 'hor_24_E', 'hor_32_E', 'hor_48_E'],
+                    help='Models to compare')
     parser.add_argument('--batch_size', type=int, default=64,
                         help='Batch size for evaluation')
     parser.add_argument('--plot_integrated_difference', action='store_true',
@@ -350,14 +391,30 @@ def main():
     weather_csv_path = None if args.weather_csv_path.lower() == 'none' else args.weather_csv_path
     
     # Load data
-    print(CYAN + "Loading data from " + args.data_path + "..." + RESET)
-    df = load_energy_hdf_to_pandas(
-        args.data_path,
-        weather_csv_path=weather_csv_path,
-        plot_data=False,
-        use_cyclic_encoding=args.use_cyclic_encoding, 
-        print_debug=PRINT_DEBUG
-    )
+    
+    
+    if HOUSE_TYPE == 'A':
+        args.data_path = 'data/data/dfA_300s.hdf'
+        print(CYAN + "Loading data from " + args.data_path + "..." + RESET)
+        df = load_energy_hdf_to_pandas(
+            args.data_path,
+            weather_csv_path=weather_csv_path,
+            plot_data=False,
+            use_cyclic_encoding=args.use_cyclic_encoding, 
+            print_debug=PRINT_DEBUG
+        )
+    elif HOUSE_TYPE == 'E':
+        args.data_path = 'data/data/dfE_300s.hdf'
+        print(CYAN + "Loading data from " + args.data_path + "..." + RESET)
+        df = load_energy_hdf_to_pandas_2nd_house(
+            args.data_path,
+            weather_csv_path=weather_csv_path,
+            plot_data=False,
+            use_cyclic_encoding=args.use_cyclic_encoding, 
+            print_debug=PRINT_DEBUG
+        )
+    else:
+        raise ValueError("Invalid HOUSE_TYPE value. Choose 'A' or 'E'.")
     
     has_temperature = 'Temperature' in df.columns
     

@@ -50,9 +50,9 @@ def train_model(model, train_loader, val_loader, n_epochs=20, lr=1e-4, device="c
             verbose=True,         # Print message when LR is reduced
             min_lr=1e-7          # Don't reduce LR below this value
         )
-        print(YELLOW + "LR Scheduler enabled (ReduceLROnPlateau: factor=0.5, patience=5)" + RESET)
+        print(YELLOW + "LR Scheduler enabled (ReduceLROnPlateau: factor=0.5, patience=5). Initial LR: " + str(lr) + RESET)
     else:
-        print(YELLOW + "LR Scheduler disabled (constant learning rate)" + RESET)
+        print(YELLOW + "LR Scheduler disabled (constant learning rate). Initial LR: " + str(lr) + RESET)
 
     print(YELLOW + "Weight decay (L2): " + "{:.2e}".format(weight_decay) + RESET)
 
