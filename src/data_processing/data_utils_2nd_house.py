@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from scipy.io import savemat
 import matplotlib.pyplot as plt
 import os
 
@@ -82,6 +83,7 @@ def load_energy_hdf_to_pandas_2nd_house(h5_file_path, plot_data=True, use_time_a
         
     return df
 
+
 def fill_nan_values(df, column_name, print_debug=True):
     
     """
@@ -105,6 +107,7 @@ def fill_nan_values(df, column_name, print_debug=True):
         print("Filled " + str(amount_nan_before) + " NaN values. Longest NaN sequence was " + str(longest_nan_seq) + " entries. This is " + str(longest_nan_seq_time) + " time.")
     
     return df
+   
     
 def convert_df_to_expected_format(df, use_cyclic_encoding=True, weather_csv_path=None, print_debug=True):
     """
@@ -183,6 +186,7 @@ def convert_df_to_expected_format(df, use_cyclic_encoding=True, weather_csv_path
                 print(df_final.head(5).to_string())
             
     return df_final
+  
     
 def load_weather_data(weather_csv_path, print_debug=True):
     """
@@ -338,6 +342,7 @@ def plot_dataset(df, use_time_axis=True):
     
     return fig
 
+
 def plot_total_cons_power(df, use_time_axis=True, print_debug=True):
     """
     Plot a separate figure for the column 'D_total_cons_power' if it exists.
@@ -377,10 +382,88 @@ def plot_total_cons_power(df, use_time_axis=True, print_debug=True):
     # return figure to caller; caller will show/save
     return fig
 
+
+def save_energy_df_as_mat(h5_file_path, out_path=None, plot_data=False, use_time_axis=True, use_cyclic_encoding=True, 
+                              weather_csv_path=None, print_debug=True):
+    """
+    Load dataset via load_energy_hdf_to_pandas_2nd_house and save to a MATLAB .mat file.
+    Neuer Parameter:
+      - out_path: optionaler Pfad zur Ausgabedatei (.mat). Wenn None, wird h5_file_path + ".mat" verwendet.
+
+    Gespeicherte Variablen:
+      - time_datenum : MATLAB datenum (double)
+      - time_str     : ISO timestamp strings (cell)
+      - data         : numeric data array (n_samples x n_features) as double
+      - col_names    : cell array mit Spaltennamen (Reihenfolge entspricht data)
+    """
+    
+    df = load_energy_hdf_to_pandas_2nd_house(h5_file_path, plot_data=plot_data,
+                                             use_time_axis=use_time_axis,
+                                             use_cyclic_encoding=use_cyclic_encoding,
+                                             weather_csv_path=weather_csv_path,
+                                             print_debug=print_debug)
+    if df is None:
+        raise RuntimeError("Loaded dataframe is None; cannot save to .mat")
+
+    # Index -> Datetime wenn möglich
+    try:
+        idx = pd.to_datetime(df.index)
+    except Exception:
+        idx = df.index
+
+
+    def _datetimeindex_to_matlab_datenum(dt_index):
+        py_dt = pd.to_datetime(dt_index).to_pydatetime()
+        ordinals = np.fromiter((d.toordinal() for d in py_dt), dtype=np.int64)
+        secs = np.fromiter(((d.hour * 3600 + d.minute * 60 + d.second + d.microsecond / 1e6) for d in py_dt), dtype=np.float64)
+        datenums = ordinals.astype(np.float64) + 366.0 + secs / 86400.0
+        return datenums.astype(np.float64)
+
+    time_datenum = _datetimeindex_to_matlab_datenum(idx)
+    time_str = np.asarray(pd.to_datetime(idx).astype(str).tolist(), dtype=object)
+
+
+    df_numeric = df.copy()
+    col_names_all = list(df_numeric.columns)
+    for c in col_names_all:
+        df_numeric[c] = pd.to_numeric(df_numeric[c], errors='coerce')
+
+    data_array = df_numeric.values.astype(np.float64)
+    col_names = np.asarray(col_names_all, dtype=object)
+
+
+    if out_path is None:
+        base, _ = os.path.splitext(h5_file_path)
+        out_path = base + ".mat"
+    out_dir = os.path.dirname(out_path)
+    if out_dir:
+        os.makedirs(out_dir, exist_ok=True)
+
+    mat_dict = {
+        'time_datenum': time_datenum,
+        'time_str': time_str,
+        'data': data_array,
+        'col_names': col_names
+    }
+
+    savemat(out_path, mat_dict, oned_as='row')
+
+    if print_debug:
+        print(GREEN + "Saved .mat file to: " + RESET + out_path)
+        print("  Variables written: time_datenum (double), time_str (cell), data (double), col_names (cell)")
+        print("  data shape: " + str(data_array.shape))
+
+    return out_path
+
+
 if __name__ == "__main__":
     h5_file_path = "data/data/dfE_300s.hdf"
     weather_csv_path = "data/data/weather_data_house_a_LUZ.csv"
+    store_mat_path = "data/data/matlab/dfE_300s.mat"
     
-    df = load_energy_hdf_to_pandas_2nd_house(h5_file_path, plot_data=False, use_time_axis=True, 
-                                            use_cyclic_encoding=True, weather_csv_path=weather_csv_path,
-                                            print_debug=True)
+    # df = load_energy_hdf_to_pandas_2nd_house(h5_file_path, plot_data=False, use_time_axis=True, 
+    #                                         use_cyclic_encoding=True, weather_csv_path=weather_csv_path,
+    #                                         print_debug=True)
+    save_energy_df_as_mat(h5_file_path, out_path=store_mat_path, plot_data=False, use_time_axis=True, 
+                          use_cyclic_encoding=True, weather_csv_path=weather_csv_path,
+                          print_debug=True)

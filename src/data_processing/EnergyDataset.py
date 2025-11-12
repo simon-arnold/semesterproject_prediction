@@ -2,6 +2,9 @@ import pandas as pd
 import numpy as np
 import torch
 from sklearn.preprocessing import MinMaxScaler
+from scipy.io import savemat
+import os
+import json
 from torch.utils.data import Dataset, DataLoader
 import matplotlib.pyplot as plt
 
@@ -83,6 +86,8 @@ class EnergyDataset(Dataset):
                 # Fit new scaler (only for training data!)
                 self.scaler = MinMaxScaler()
                 df[cols_to_normalize] = self.scaler.fit_transform(df[cols_to_normalize])
+                
+                self.save_scaler_params_mat(self.scaler, cols_to_normalize)
             else:
                 # Use pre-fitted scaler (for validation/test data)
                 df[cols_to_normalize] = self.scaler.transform(df[cols_to_normalize])
@@ -113,6 +118,24 @@ class EnergyDataset(Dataset):
 
         
         return X, y
+
+    def save_scaler_params_mat(self, scaler, scaled_cols, file_path="NN_storage/min_max_scaler_params.mat"):
+        """Speichert Min/Max-Werte und Feature-Namen in einer MATLAB .mat Datei."""
+        if not os.path.exists(os.path.dirname(file_path)):
+            os.makedirs(os.path.dirname(file_path))
+            
+        data_to_save = {
+            # Min und Max Werte des Scalers
+            'Min_Vals': scaler.data_min_,
+            'Max_Vals': scaler.data_max_,
+            # Feature-Namen (als String-Array für MATLAB Cell Array)
+            'Scaled_Features_Names': np.array(scaled_cols, dtype='object') 
+        }
+        
+        savemat(file_path, data_to_save)
+        print(f"\n{YELLOW}Scaler-Parameter erfolgreich für MATLAB gespeichert:{RESET}")
+        print(f"  Datei: {file_path}")
+        print(f"  Skalierte Features: {scaled_cols}")
 
     def __len__(self):
         return len(self.X)
