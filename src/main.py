@@ -1,5 +1,6 @@
 from data_processing.EnergyDataset import EnergyDataset
 from data_processing.data_utils import load_energy_hdf_to_pandas, split_dataframe
+from data_processing.data_utils_2nd_house import load_energy_hdf_to_pandas_2nd_house
 from models.cnn_lstm_forecaster import CNN_LSTM_Forecaster
 from training.train_loop import train_model
 from training.evaluate import evaluate_model, plot_multiple_predictions_at_date
@@ -37,7 +38,9 @@ INPUT_SEQUENCE_LENGTH_TIMESTEPS = 192 #also reasonable results with 96 but then 
 #   - 24 timesteps = 6 hours
 #   - 32 timesteps = 8 hours
 #   - 48 timesteps = 12 hours
-FORECAST_HORIZON_TIMESTEPS = 24
+FORECAST_HORIZON_TIMESTEPS = 16
+
+USE_HOUSE = 'E'  # Options: 'A' or 'E' (2nd house)
 
 def main():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -52,12 +55,29 @@ def main():
     # 1️. Load Data
     weather_path = "data/data/weather_data_house_a_LUZ.csv"
     # weather_path = None  # No weather data
-    df = load_energy_hdf_to_pandas(
-        "data/data/dfA_300s.hdf", 
-        plot_data=False, 
-        use_cyclic_encoding=use_cyclic_encoding,
-        weather_csv_path=weather_path
-    )
+    
+    if USE_HOUSE == 'A':
+        
+        df = load_energy_hdf_to_pandas(
+            "data/data/dfA_300s.hdf", 
+            plot_data=False, 
+            use_cyclic_encoding=use_cyclic_encoding,
+            weather_csv_path=weather_path, 
+            print_debug=True
+        )
+        
+    elif USE_HOUSE == 'E':
+        
+        df = load_energy_hdf_to_pandas_2nd_house(
+            "data/data/dfE_300s.hdf", 
+            plot_data=False, 
+            use_cyclic_encoding=use_cyclic_encoding,
+            weather_csv_path=weather_path, 
+            print_debug=True
+        )
+    
+    else:
+        raise ValueError("Invalid USE_HOUSE value. Choose 'A' or 'E'.")
 
     # 2️. Split
     df_train, df_val, df_test = split_dataframe(df, 0.7, 0.15, 0.15)

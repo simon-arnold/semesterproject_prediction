@@ -2,7 +2,7 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
-import os
+
 
 CYAN = '\033[96m'
 GREEN = '\033[92m'
