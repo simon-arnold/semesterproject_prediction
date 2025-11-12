@@ -5,6 +5,7 @@ data/
 NN_weights/
 NN_storage/
 NN_storage*/
+house_*/
 *.pth
 *.onnx
 best_model_per_hor

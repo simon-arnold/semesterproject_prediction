@@ -12,6 +12,7 @@ import os
 YELLOW = '\033[93m'
 GREEN = '\033[92m'
 CYAN = '\033[96m'
+RED = '\033[91m'
 RESET = '\033[0m'
 
 store_onnx = True  
@@ -43,6 +44,10 @@ FORECAST_HORIZON_TIMESTEPS = 16
 USE_HOUSE = 'E'  # Options: 'A' or 'E' (2nd house)
 
 def main():
+    
+    print(RED + "\n Using House " + USE_HOUSE + " for training/evaluation." + RESET)
+    print(RED + " Using a forecast horizon of " + str(FORECAST_HORIZON_TIMESTEPS) + " timesteps (" + "{:.1f}".format(FORECAST_HORIZON_TIMESTEPS/4) + " hours).\n" + RESET)
+    
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print("Using device: " + str(device))
     

@@ -196,6 +196,9 @@ def main():
                         help='Number of timesteps after which cumulative integral difference resets (default: None = reset after each forecast horizon)')
     
     args = parser.parse_args()
+    
+    print(RED + "\n Using House " + USE_HOUSE + " for training/evaluation." + RESET)
+    print(RED + " Using a forecast horizon of " + str(args.output_horizon) + " timesteps (" + "{:.1f}".format(args.output_horizon/4) + " hours).\n" + RESET)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     print(f"{BLUE}{'='*60}{RESET}")
