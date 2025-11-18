@@ -11,14 +11,14 @@ RESET = '\033[0m'
 def load_energy_hdf_to_pandas_2nd_house(h5_file_path, plot_data=True, use_time_axis=True, use_cyclic_encoding=True, 
                               weather_csv_path=None, print_debug=True):
     
-    # try:
-    #     with pd.HDFStore(h5_file_path, mode='r') as store:
-    #         keys = store.keys()
-    #         if print_debug:
-    #             print("HDFStore keys: " + str(keys))
-    # except Exception as e:
-    #     if print_debug:
-    #         print("Could not open HDFStore to list keys: " + str(e))
+    try:
+        with pd.HDFStore(h5_file_path, mode='r') as store:
+            keys = store.keys()
+            if print_debug:
+                print("HDFStore keys: " + str(keys))
+    except Exception as e:
+        if print_debug:
+            print("Could not open HDFStore to list keys: " + str(e))
 
     try:
         df_raw = pd.read_hdf(h5_file_path, key='data')
@@ -75,9 +75,13 @@ def load_energy_hdf_to_pandas_2nd_house(h5_file_path, plot_data=True, use_time_a
     
     # Here the conversion from the input df to the needed df starts:
     
-    col = 'E_total_cons_power'
+    col_electricity = 'E_total_cons_power'
+    col_pv_power = 'E_prod_power'
     
-    df_raw_nan_filled = fill_nan_values(df_raw, col, print_debug=print_debug)
+    df_raw_nan_filled = fill_nan_values(df_raw, col_electricity, print_debug=print_debug)
+    
+    #as we are also exporting pv data for house E, we need to fill NaN values in E_pv_power as well
+    df_raw_nan_filled = fill_nan_values(df_raw_nan_filled, col_pv_power, print_debug=print_debug)
     
     df = convert_df_to_expected_format(df_raw_nan_filled, use_cyclic_encoding=use_cyclic_encoding,weather_csv_path=weather_csv_path, print_debug=print_debug)
         
@@ -135,6 +139,10 @@ def convert_df_to_expected_format(df, use_cyclic_encoding=True, weather_csv_path
     load_smooth = load.rolling(window=3, center=True, min_periods=1).mean()
     load_smooth = load_smooth.clip(lower=0.0) 
     
+    pv_forecast = df['E_prod_power']
+    pv_forecast_smooth = pv_forecast.rolling(window=3, center=True, min_periods=1).mean()
+    pv_forecast_smooth = pv_forecast_smooth.clip(lower=0.0)
+    
     dt_index = pd.DatetimeIndex(df.index)
     df_features = pd.DataFrame(index=dt_index)
     
@@ -162,6 +170,10 @@ def convert_df_to_expected_format(df, use_cyclic_encoding=True, weather_csv_path
     # Add Year and Load
     df_features['Year'] = dt_index.year
     df_features['Load'] = load_smooth.values
+    df_features['PV_forecast'] = pv_forecast_smooth.values
+    
+    #if I add the pv production, hopefully this does not distrups some access of the data where it was hardcoded with access -1 or so
+    
     
     # Now create the final Dataset which will be returned (still missing the temperature!)
     df_final = df_features[dt_index.minute.isin([0, 15, 30, 45])]
