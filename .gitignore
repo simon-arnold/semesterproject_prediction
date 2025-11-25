@@ -13,6 +13,9 @@ best_model_per_hor
 # Ignore TensorBoard logs
 runs/
 
+# Ignore all Plots directories
+plots/
+
 # Ignore all __pycache__ directories
 __pycache__/
 *.py[cod]

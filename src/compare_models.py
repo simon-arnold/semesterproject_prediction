@@ -31,7 +31,7 @@ RESET = '\033[0m'
 
 PRINT_DEBUG = False
 
-HOUSE_TYPE = 'E'  # Options: 'A' or 'E' (2nd house)
+HOUSE_TYPE = 'A'  # Options: 'A' or 'E' (2nd house)
 
 # Model configurations
 MODELS = {
@@ -75,6 +75,43 @@ MODELS = {
         'name': '48-step A',
         'path': 'house_A/NN_storage_hor_48/NN_storage_3/NN_weights/best_model.pth',
         'model_file': 'house_A/NN_storage_hor_48/NN_storage_3/cnn_lstm.py',
+        'horizon': 48,
+        'seq_len': 192,
+        'use_temperature': True,
+        'color': 'red'
+    },
+    'hor_16_A_no_HP': {
+        'name': '16-step A (no HP)',
+        'path': 'house_A_wo_HP/NN_storage_hor_16/NN_storage_2/NN_weights/best_model.pth',
+        'model_file': 'house_A_wo_HP/NN_storage_hor_16/NN_storage_2/cnn_lstm.py',
+        'horizon': 16,
+        'seq_len': 192,
+        'use_temperature': True,
+        'color': 'orange'
+    },
+  
+    'hor_24_A_no_HP': {
+        'name': '24-step A (no HP)',
+        'path': 'house_A_wo_HP/NN_storage_hor_24/NN_storage_2/NN_weights/best_model.pth',
+        'model_file': 'house_A_wo_HP/NN_storage_hor_24/NN_storage_2/cnn_lstm.py',
+        'horizon': 24,
+        'seq_len': 192,
+        'use_temperature': True,
+        'color': 'green'
+    },
+    'hor_32_A_no_HP': {
+        'name': '32-step A (no HP)',
+        'path': 'house_A_wo_HP/NN_storage_hor_32/NN_storage_1/NN_weights/best_model.pth',
+        'model_file': 'house_A_wo_HP/NN_storage_hor_32/NN_storage_1/cnn_lstm.py',
+        'horizon': 32,
+        'seq_len': 192,
+        'use_temperature': True,
+        'color': 'black'
+    },
+    'hor_48_A_no_HP': {
+        'name': '48-step A (no HP)',
+        'path': 'house_A_wo_HP/NN_storage_hor_48/NN_storage_1/NN_weights/best_model.pth',
+        'model_file': 'house_A_wo_HP/NN_storage_hor_48/NN_storage_1/cnn_lstm.py',
         'horizon': 48,
         'seq_len': 192,
         'use_temperature': True,
@@ -367,9 +404,13 @@ def main():
     #                     default=['hor_16_temp_A', 'hor_24_A', 'hor_32_A', 'hor_48_A'],
     #                     choices=['hor_16_temp_A', 'hor_24_A', 'hor_32_A', 'hor_48_A'],
     #                     help='Models to compare')
+    # parser.add_argument('--models', type=str, nargs='+',
+    #                 default=['hor_16_E', 'hor_24_E', 'hor_32_E', 'hor_48_E'],
+    #                 choices=['hor_16_E', 'hor_24_E', 'hor_32_E', 'hor_48_E'],
+    #                 help='Models to compare')
     parser.add_argument('--models', type=str, nargs='+',
-                    default=['hor_16_E', 'hor_24_E', 'hor_32_E', 'hor_48_E'],
-                    choices=['hor_16_E', 'hor_24_E', 'hor_32_E', 'hor_48_E'],
+                    default=['hor_16_A_no_HP', 'hor_24_A_no_HP', 'hor_32_A_no_HP', 'hor_48_A_no_HP'],
+                    choices=['hor_16_A_no_HP', 'hor_24_A_no_HP', 'hor_32_A_no_HP', 'hor_48_A_no_HP'],
                     help='Models to compare')
     parser.add_argument('--batch_size', type=int, default=64,
                         help='Batch size for evaluation')
