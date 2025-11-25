@@ -468,14 +468,194 @@ def save_energy_df_as_mat(h5_file_path, out_path=None, plot_data=False, use_time
     return out_path
 
 
+def get_peak_PV_production(df, n_peaks=10):
+    """
+    Calculate the peak PV production from the dataframe.
+    Assumes the dataframe has a column 'PV_forecast' representing PV power in Watts.
+    
+    Args:
+        df (pd.DataFrame): DataFrame containing 'PV_forecast' column.
+        n_peaks (int): Number of top peaks to return (max one per calendar day). Default: 10.
+    Returns:
+        tuple: (peaks, yearly_consumption)
+            - peaks: list of dicts for each peak with keys: 'timestamp','date','value_w','value_kw','plot'.
+            - yearly_consumption: list of dicts with keys: 'year', 'consumption_kwh'
+    """
+    # New behaviour:
+    # - find top `n_peaks` peaks by PV_forecast (W)
+    # - allow at most one peak per calendar day (when a peak is selected, other
+    #   samples from the same day are not candidates)
+    # - for each selected peak, plot the PV_forecast for the day +/- `days_window`
+    # - return a list of dictionaries with timestamp, date, value in W and kW,
+    #   and path to saved plot (if plotting succeeded)
+
+    if 'PV_forecast' not in df.columns:
+        raise ValueError("DataFrame does not contain 'PV_forecast' column.")
+
+    # Parameters (tweakable)
+    days_window = 3  # days before and after the peak day to plot
+    save_plots = True
+    out_dir = os.path.join("plots", "pv_top_peaks")
+
+    # Ensure datetime index for easy slicing
+    try:
+        df_indexed = df.copy()
+        df_indexed.index = pd.to_datetime(df_indexed.index)
+    except Exception:
+        df_indexed = df
+
+    series = df_indexed['PV_forecast'].dropna()
+    if series.empty:
+        # still compute yearly consumption if possible
+        yearly = []
+        try:
+            yearly = _compute_yearly_consumption(df_indexed)
+        except Exception:
+            yearly = []
+        return ([], yearly)
+
+    # Candidates sorted descending
+    candidates = series.sort_values(ascending=False)
+
+    selected = []
+    used_days = set()
+
+    for ts, val in candidates.items():
+        day = pd.to_datetime(ts).date()
+        if day in used_days:
+            continue
+        selected.append((pd.to_datetime(ts), float(val)))
+        used_days.add(day)
+        if len(selected) >= n_peaks:
+            break
+
+    if save_plots:
+        os.makedirs(out_dir, exist_ok=True)
+
+    results = []
+    for idx, (ts, val_w) in enumerate(selected, start=1):
+        peak_kw = val_w / 1000.0
+        peak_date = pd.to_datetime(ts).date()
+
+        start = ts - pd.Timedelta(days=days_window)
+        end = ts + pd.Timedelta(days=days_window)
+
+        # Select window safely
+        try:
+            window = df_indexed.loc[start:end]['PV_forecast']
+        except Exception:
+            mask = (pd.to_datetime(df_indexed.index) >= start) & (pd.to_datetime(df_indexed.index) <= end)
+            window = df_indexed.loc[mask, 'PV_forecast']
+
+        plot_path = None
+        if save_plots:
+            try:
+                fig, ax = plt.subplots(figsize=(12, 4))
+                x = pd.to_datetime(window.index)
+                y = window.values
+                ax.plot(x, y, label='PV_forecast', color='tab:orange')
+                # highlight the selected peak
+                ax.axvline(ts, color='red', linestyle='--', alpha=0.7)
+                ax.plot([ts], [val_w], 'ro', label='Peak')
+                ax.set_title(f"Peak #{idx}: {peak_date} — {peak_kw:.2f} kW")
+                ax.set_ylabel('PV_forecast (W)')
+                ax.grid(True, alpha=0.3)
+                ax.legend()
+                plt.tight_layout()
+
+                plot_path = os.path.join(out_dir, f"peak_{idx:02d}_{peak_date}.png")
+                fig.savefig(plot_path)
+                plt.close(fig)
+            except Exception:
+                plot_path = None
+
+        results.append({
+            'timestamp': ts,
+            'date': peak_date,
+            'value_w': val_w,
+            'value_kw': peak_kw,
+            'plot': plot_path,
+        })
+
+    # compute yearly consumption for full years
+    try:
+        yearly = _compute_yearly_consumption(df_indexed)
+    except Exception:
+        yearly = []
+
+    return (results, yearly)
+
+
+def _compute_yearly_consumption(df_indexed):
+    """Compute total electricity consumption per year (kWh) for years where
+    we have data from beginning to end of the year.
+
+    Expects a DataFrame with a datetime-like index and a consumption column
+    named 'Load' (Watts) or 'E_total_cons_power' as fallback.
+    """
+    # determine consumption column
+    if 'Load' in df_indexed.columns:
+        cons_col = 'Load'
+    elif 'E_total_cons_power' in df_indexed.columns:
+        cons_col = 'E_total_cons_power'
+    else:
+        raise ValueError("No load column found for yearly consumption (expected 'Load' or 'E_total_cons_power').")
+
+    idx = pd.to_datetime(df_indexed.index)
+    diffs = idx.to_series().diff().dropna()
+    if len(diffs) == 0:
+        return []
+    dominant = diffs.mode().iloc[0] if not diffs.mode().empty else diffs.median()
+    dt_hours = float(dominant / pd.Timedelta(hours=1))
+
+    years = sorted(pd.DatetimeIndex(idx).year.unique())
+    results = []
+    for year in years:
+        year_start = pd.Timestamp(year=year, month=1, day=1)
+        year_end = pd.Timestamp(year=year, month=12, day=31, hour=23, minute=59, second=59)
+
+        # check coverage
+        if idx.min() <= year_start and idx.max() >= year_end:
+            subset = df_indexed.loc[str(year)]
+            # expected samples in year
+            expected_samples = int(round(((year_end - year_start) / dominant))) + 1
+            actual_samples = len(subset)
+            # accept if at least 99% of expected samples are present
+            if expected_samples > 0 and actual_samples >= 0.99 * expected_samples:
+                # energy in kWh = sum(power_W) * dt_hours / 1000
+                total_kwh = float(subset[cons_col].dropna().sum() * dt_hours / 1000.0)
+                results.append({'year': int(year), 'consumption_kwh': total_kwh})
+    return results
+
 if __name__ == "__main__":
     h5_file_path = "data/data/dfE_300s.hdf"
     weather_csv_path = "data/data/weather_data_house_a_LUZ.csv"
     store_mat_path = "data/data/matlab/dfE_300s.mat"
     
-    # df = load_energy_hdf_to_pandas_2nd_house(h5_file_path, plot_data=False, use_time_axis=True, 
-    #                                         use_cyclic_encoding=True, weather_csv_path=weather_csv_path,
-    #                                         print_debug=True)
-    save_energy_df_as_mat(h5_file_path, out_path=store_mat_path, plot_data=False, use_time_axis=True, 
-                          use_cyclic_encoding=True, weather_csv_path=weather_csv_path,
-                          print_debug=True)
+    df = load_energy_hdf_to_pandas_2nd_house(h5_file_path, plot_data=False, use_time_axis=True, 
+                                            use_cyclic_encoding=True, weather_csv_path=weather_csv_path,
+                                            print_debug=True)
+    # save_energy_df_as_mat(h5_file_path, out_path=store_mat_path, plot_data=False, use_time_axis=True, 
+    #                       use_cyclic_encoding=True, weather_csv_path=weather_csv_path,
+    #                       print_debug=True)
+    
+    peaks, yearly = get_peak_PV_production(df, 60)
+    if not peaks:
+        print("No PV peaks found.")
+    else:
+        print("Top PV peaks:")
+        for i, p in enumerate(peaks, start=1):
+            print(f"{i:2d}. {p['date']} — {p['value_kw']:.2f} kW (raw {p['value_w']:.0f} W)  plot: {p['plot']}")
+
+    if yearly:
+        print("\nYearly consumption for full years (kWh):")
+        for y in yearly:
+            print(f"{y['year']}: {y['consumption_kwh']:.1f} kWh")
+
+    # Note: `plot_top_pv_events` is not defined in this module; if you want to
+    # run additional event plotting, import or implement that function and
+    # uncomment the call below.
+    # results = plot_top_pv_events(df, n=5, window_days=2, use_time_axis=True, save_plots=True, out_dir="plots/pv_events_house_E")
+    # print("Results of top PV events plotting:", results)
+    
+    
