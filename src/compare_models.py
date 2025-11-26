@@ -53,6 +53,15 @@ MODELS = {
         'use_temperature': True,
         'color': 'orange'
     },
+    'hor_16_A_ker5': {
+        'name': '16-step A ker5',
+        'path': 'house_A/NN_storage_hor_16/NN_storage_4_ker5/NN_weights/cnn_lstm_forecaster.pth',
+        'model_file': 'house_A/NN_storage_hor_16/NN_storage_4_ker5/cnn_lstm.py',
+        'horizon': 16,
+        'seq_len': 192,
+        'use_temperature': True,
+        'color': 'orange'
+    },
     'hor_24_A': {
         'name': '24-step A',
         'path': 'house_A/NN_storage_hor_24/NN_storage_5/NN_weights/best_model.pth',
@@ -89,7 +98,15 @@ MODELS = {
         'use_temperature': True,
         'color': 'orange'
     },
-  
+   'hor_16_A_no_HP_ker5': {
+        'name': '16-step A ker5 (no HP)',
+        'path': 'house_A_wo_HP/NN_storage_hor_16/NN_storage_3_ker5/NN_weights/best_model.pth',
+        'model_file': 'house_A_wo_HP/NN_storage_hor_16/NN_storage_3_ker5/cnn_lstm.py',
+        'horizon': 16,
+        'seq_len': 192,
+        'use_temperature': True,
+        'color': 'orange'
+    },
     'hor_24_A_no_HP': {
         'name': '24-step A (no HP)',
         'path': 'house_A_wo_HP/NN_storage_hor_24/NN_storage_2/NN_weights/best_model.pth',
@@ -121,6 +138,15 @@ MODELS = {
         'name': '16-step E',
         'path': 'house_E/NN_storage_hor_16/NN_storage_1/NN_weights/cnn_lstm_forecaster.pth',
         'model_file': 'house_E/NN_storage_hor_16/NN_storage_1/cnn_lstm.py',
+        'horizon': 16,
+        'seq_len': 192,
+        'use_temperature': True,
+        'color': 'orange'
+    },
+    'hor_16_E_ker5': {
+        'name': '16-step E ker5',
+        'path': 'house_E/NN_storage_hor_16/NN_storage_4_ker5/NN_weights/cnn_lstm_forecaster.pth',
+        'model_file': 'house_E/NN_storage_hor_16/NN_storage_4_ker5/cnn_lstm.py',
         'horizon': 16,
         'seq_len': 192,
         'use_temperature': True,
@@ -315,6 +341,14 @@ def plot_model_comparison(models_data, df_test, plot_integral_difference=False):
     """
     print(CYAN + "Creating comparison plot..." + RESET)
     
+    # Calculate and print overall test-set statistics (average and peak consumption)
+    if 'Load' in df_test.columns:
+        avg_test_load = df_test['Load'].mean()
+        peak_test_load = df_test['Load'].max()
+        print(f" Test set: Average load = {avg_test_load:.2f} W, Peak load = {peak_test_load:.2f} W")
+    else:
+        print(YELLOW + " Test set does not contain 'Load' column; skipping avg/peak stats." + RESET)
+
     # Create figure
     if plot_integral_difference:
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(24, 14), 
@@ -352,8 +386,21 @@ def plot_model_comparison(models_data, df_test, plot_integral_difference=False):
         mse = np.mean((pred_timeline - target_timeline) ** 2)
         mae = np.mean(np.abs(pred_timeline - target_timeline))
         rmse = np.sqrt(mse)
-        mape = np.mean(np.abs(pred_timeline - target_timeline)/(target_timeline + 1e-8)) * 100  
-        print("   " + label + ": MSE = " + "{:.2f}".format(mse) + " W², MAE = " + "{:.2f}".format(mae) + " W, RMSE = " + "{:.2f}".format(rmse) + " W, MAPE = " + "{:.2f}".format(mape) + " % (" + str(n_samples) + " samples)")
+        mape = np.mean(np.abs(pred_timeline - target_timeline) / (target_timeline + 1e-8)) * 100
+
+        # R^2 (coefficient of determination): 1 - SS_res / SS_tot
+        ss_res = np.sum((target_timeline - pred_timeline) ** 2)
+        ss_tot = np.sum((target_timeline - np.mean(target_timeline)) ** 2)
+        r2 = 1.0 - ss_res / (ss_tot + 1e-8)
+
+        print(
+            "   " + label + ": MSE = " + "{:.2f}".format(mse)
+            + " W², MAE = " + "{:.2f}".format(mae)
+            + " W, RMSE = " + "{:.2f}".format(rmse)
+            + " W, MAPE = " + "{:.2f}".format(mape)
+            + " %, R2 = " + "{:.3f}".format(r2)
+            + " (" + str(n_samples) + " samples)"
+        )
         
         # Plot integral difference if requested
         if plot_integral_difference:
@@ -401,16 +448,16 @@ def main():
                         default='data/data/weather_data_house_a_LUZ.csv',
                         help='Path to weather CSV file (set to "none" to disable)')
     # parser.add_argument('--models', type=str, nargs='+',
-    #                     default=['hor_16_temp_A', 'hor_24_A', 'hor_32_A', 'hor_48_A'],
-    #                     choices=['hor_16_temp_A', 'hor_24_A', 'hor_32_A', 'hor_48_A'],
+    #                     default=['hor_16_A_ker5', 'hor_24_A', 'hor_32_A', 'hor_48_A'],
+    #                     choices=['hor_16_A_ker5', 'hor_24_A', 'hor_32_A', 'hor_48_A',],
     #                     help='Models to compare')
     # parser.add_argument('--models', type=str, nargs='+',
-    #                 default=['hor_16_E', 'hor_24_E', 'hor_32_E', 'hor_48_E'],
-    #                 choices=['hor_16_E', 'hor_24_E', 'hor_32_E', 'hor_48_E'],
+    #                 default=['hor_16_E_ker5', 'hor_24_E', 'hor_32_E', 'hor_48_E'],
+    #                 choices=['hor_16_E_ker5', 'hor_24_E', 'hor_32_E', 'hor_48_E'],
     #                 help='Models to compare')
     parser.add_argument('--models', type=str, nargs='+',
-                    default=['hor_16_A_no_HP', 'hor_24_A_no_HP', 'hor_32_A_no_HP', 'hor_48_A_no_HP'],
-                    choices=['hor_16_A_no_HP', 'hor_24_A_no_HP', 'hor_32_A_no_HP', 'hor_48_A_no_HP'],
+                    default=['hor_16_A_no_HP_ker5', 'hor_24_A_no_HP', 'hor_32_A_no_HP', 'hor_48_A_no_HP'],
+                    choices=['hor_16_A_no_HP_ker5', 'hor_24_A_no_HP', 'hor_32_A_no_HP', 'hor_48_A_no_HP'],
                     help='Models to compare')
     parser.add_argument('--batch_size', type=int, default=64,
                         help='Batch size for evaluation')

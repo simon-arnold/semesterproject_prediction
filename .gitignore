@@ -8,7 +8,7 @@ NN_storage*/
 house_*/
 *.pth
 *.onnx
-best_model_per_hor
+
 
 # Ignore TensorBoard logs
 runs/

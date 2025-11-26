@@ -23,7 +23,7 @@ class CNN_LSTM_Forecaster(nn.Module):
         self.conv1 = nn.Conv1d(
             in_channels=input_dim,
             out_channels=32,
-            kernel_size=3, #Changed from 5->4 way faster training time
+            kernel_size=4, #Changed from 5->4 way faster training time
             stride=1,
             padding=2,
         )
@@ -32,7 +32,7 @@ class CNN_LSTM_Forecaster(nn.Module):
         self.conv2 = nn.Conv1d(
             in_channels=32,
             out_channels=64,
-            kernel_size=3,
+            kernel_size=5,
             stride=1,
             padding=2,
         )
@@ -42,7 +42,7 @@ class CNN_LSTM_Forecaster(nn.Module):
         self.conv3 = nn.Conv1d(
             in_channels=64,
             out_channels=128,
-            kernel_size=3,
+            kernel_size=5,
             stride=1,
             padding=1,
         )
