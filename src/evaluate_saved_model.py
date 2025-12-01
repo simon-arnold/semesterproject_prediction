@@ -34,7 +34,7 @@ RESET = '\033[0m'
 # Set this to match the encoding used when training the model!
 USE_CYCLIC_ENCODING = True  # True: 8 features (cyclic), False: 6 features (raw)
 
-USE_HOUSE = 'E'  # Options: 'A' or 'E' (2nd house)
+USE_HOUSE = 'A'  # Options: 'A' or 'E' (2nd house)
 
 
 def load_test_data(data_path="data/data/dfA_300s.hdf", weather_csv_path="data/data/weather_data_house_a_LUZ.csv", seq_len=192, output_horizon=16):

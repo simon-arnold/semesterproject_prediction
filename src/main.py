@@ -39,9 +39,9 @@ INPUT_SEQUENCE_LENGTH_TIMESTEPS = 192 #also reasonable results with 96 but then 
 #   - 24 timesteps = 6 hours
 #   - 32 timesteps = 8 hours
 #   - 48 timesteps = 12 hours
-FORECAST_HORIZON_TIMESTEPS = 16
+FORECAST_HORIZON_TIMESTEPS = 32
 
-USE_HOUSE = 'E'  # Options: 'A' or 'E' (2nd house)
+USE_HOUSE = 'A'  # Options: 'A' or 'E' (2nd house)
 
 def main():
     

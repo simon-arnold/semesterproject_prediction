@@ -81,6 +81,7 @@ class EnergyDataset(Dataset):
         
         # Optional normalization
         self.scaler = scaler
+        self.cols_to_normalize = cols_to_normalize  # Store for reference
         if normalize:
             if self.scaler is None:
                 # Fit new scaler (only for training data!)
@@ -88,9 +89,11 @@ class EnergyDataset(Dataset):
                 df[cols_to_normalize] = self.scaler.fit_transform(df[cols_to_normalize])
                 
                 self.save_scaler_params_mat(self.scaler, cols_to_normalize)
+                self._print_scaler_info(cols_to_normalize, is_new_scaler=True)
             else:
                 # Use pre-fitted scaler (for validation/test data)
                 df[cols_to_normalize] = self.scaler.transform(df[cols_to_normalize])
+                self._print_scaler_info(cols_to_normalize, is_new_scaler=False)
 
         self.X, self.y = self.create_sequences(df)
 
@@ -136,6 +139,26 @@ class EnergyDataset(Dataset):
         print(f"\n{YELLOW}Scaler-Parameter erfolgreich für MATLAB gespeichert:{RESET}")
         print(f"  Datei: {file_path}")
         print(f"  Skalierte Features: {scaled_cols}")
+
+    def _print_scaler_info(self, cols_to_normalize, is_new_scaler=True):
+        """Print min/max values for each normalized feature."""
+        # if self.scaler is None:
+        #     return
+            
+        # if is_new_scaler:
+        #     print(f"\n{YELLOW}MinMaxScaler fitted on training data:{RESET}")
+        # else:
+        #     print(f"\n{YELLOW}Using pre-fitted MinMaxScaler:{RESET}")
+        
+        # print(f"  {'Feature':<20} {'Min':>12} {'Max':>12}")
+        # print(f"  {'-'*20} {'-'*12} {'-'*12}")
+        
+        # for i, col in enumerate(cols_to_normalize):
+        #     min_val = self.scaler.data_min_[i]
+        #     max_val = self.scaler.data_max_[i]
+        #     print(f"  {col:<20} {min_val:>12.2f} {max_val:>12.2f}")
+        
+        # print()
 
     def __len__(self):
         return len(self.X)

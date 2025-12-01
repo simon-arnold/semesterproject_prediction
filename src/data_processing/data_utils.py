@@ -152,8 +152,8 @@ def load_energy_hdf_to_pandas(h5_file_path, plot_data=True, use_time_axis=True, 
     # --- Fill NaNs (forward fill, then backward fill if needed) ---
     df_raw = df_raw.ffill().bfill()
 
-    load = df_raw['A_total_cons_power'] - df_raw['A_sauna_power'] - df_raw['A_hp_power']
-    # load = df_raw['A_total_cons_power'] - df_raw['A_sauna_power']
+    # load = df_raw['A_total_cons_power'] - df_raw['A_sauna_power'] - df_raw['A_hp_power']
+    load = df_raw['A_total_cons_power'] - df_raw['A_sauna_power']
 
     load_smooth = load.rolling(window=3, center=True, min_periods=1).mean()
     # Ensure load cannot be negative (clip to 0)
@@ -278,6 +278,7 @@ def load_energy_hdf_to_pandas(h5_file_path, plot_data=True, use_time_axis=True, 
             print("-" * 50)
 
     return df_final
+
 
 def split_dataframe(df, train_frac=0.7, val_frac=0.15, test_frac=0.15, print_debug=True):
     """

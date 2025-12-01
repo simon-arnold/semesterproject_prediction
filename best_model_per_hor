@@ -3,7 +3,10 @@ house_A
     hor_16 ker5: Modell N4
     hor 24: Modell N5
     hor 32: Monell N8
+    hor_48 24: Modell N8
     hor 48: Modell N3
+    hor_48 24: Modell N8
+    
 
 house_A_wo_HP
     hor_16: Modell N2
@@ -17,4 +20,6 @@ house_E
     hor_16 ker5: Modell N4
     hor_24: Modell N1
     hor_32: Modell N3
+    hor_32 24: Modell N6
     hor_48: Modell N3
+    hor_48 24: Modell N5

@@ -54,7 +54,7 @@ MODELS = {
         'color': 'orange'
     },
     'hor_16_A_ker5': {
-        'name': '16-step A ker5',
+        'name': '16-step A',
         'path': 'house_A/NN_storage_hor_16/NN_storage_4_ker5/NN_weights/cnn_lstm_forecaster.pth',
         'model_file': 'house_A/NN_storage_hor_16/NN_storage_4_ker5/cnn_lstm.py',
         'horizon': 16,
@@ -80,6 +80,33 @@ MODELS = {
         'use_temperature': True,
         'color': 'black'
     },
+    # 'hor_32_A_24_1': {
+    #     'name': '32-step A 24 1',
+    #     'path': 'house_A/NN_storage_hor_32/NN_storage_9_24er/NN_weights/best_model.pth',
+    #     'model_file': 'house_A/NN_storage_hor_32/NN_storage_9_24er/cnn_lstm.py',
+    #     'horizon': 32,
+    #     'seq_len': 192,
+    #     'use_temperature': True,
+    #     'color': 'red'
+    # },
+    # 'hor_32_A_24_2': {
+    #     'name': '32-step A 24 2',
+    #     'path': 'house_A/NN_storage_hor_32/NN_storage_10_24er/NN_weights/best_model.pth',
+    #     'model_file': 'house_A/NN_storage_hor_32/NN_storage_10_24er/cnn_lstm.py',
+    #     'horizon': 32,
+    #     'seq_len': 192,
+    #     'use_temperature': True,
+    #     'color': 'orange'
+    # },
+    'hor_32_A_24_3': {
+        'name': '32-step A 24 3',
+        'path': 'house_A/NN_storage_hor_32/NN_storage_11_24er/NN_weights/best_model.pth',
+        'model_file': 'house_A/NN_storage_hor_32/NN_storage_11_24er/cnn_lstm.py',
+        'horizon': 32,
+        'seq_len': 192,
+        'use_temperature': True,
+        'color': 'purple'
+    },
     'hor_48_A': {
         'name': '48-step A',
         'path': 'house_A/NN_storage_hor_48/NN_storage_3/NN_weights/best_model.pth',
@@ -88,6 +115,15 @@ MODELS = {
         'seq_len': 192,
         'use_temperature': True,
         'color': 'red'
+    },
+    'hor_48_A_24_5': {
+        'name': '48-step A24 5',
+        'path': 'house_A/NN_storage_hor_48/NN_storage_8_24er/NN_weights/best_model.pth',
+        'model_file': 'house_A/NN_storage_hor_48/NN_storage_8_24er/cnn_lstm.py',
+        'horizon': 48,
+        'seq_len': 192,
+        'use_temperature': True,
+        'color': 'purple'
     },
     'hor_16_A_no_HP': {
         'name': '16-step A (no HP)',
@@ -99,7 +135,7 @@ MODELS = {
         'color': 'orange'
     },
    'hor_16_A_no_HP_ker5': {
-        'name': '16-step A ker5 (no HP)',
+        'name': '16-step A (no HP)',
         'path': 'house_A_wo_HP/NN_storage_hor_16/NN_storage_3_ker5/NN_weights/best_model.pth',
         'model_file': 'house_A_wo_HP/NN_storage_hor_16/NN_storage_3_ker5/cnn_lstm.py',
         'horizon': 16,
@@ -144,7 +180,7 @@ MODELS = {
         'color': 'orange'
     },
     'hor_16_E_ker5': {
-        'name': '16-step E ker5',
+        'name': '16-step E',
         'path': 'house_E/NN_storage_hor_16/NN_storage_4_ker5/NN_weights/cnn_lstm_forecaster.pth',
         'model_file': 'house_E/NN_storage_hor_16/NN_storage_4_ker5/cnn_lstm.py',
         'horizon': 16,
@@ -160,6 +196,24 @@ MODELS = {
         'seq_len': 192,
         'use_temperature': True,
         'color': 'green'
+    },
+    #     'hor_32_E_24_1': {
+    #     'name': '32-step E 24 1',
+    #     'path': 'house_E/NN_storage_hor_32/NN_storage_5_24er/NN_weights/best_model.pth',
+    #     'model_file': 'house_E/NN_storage_hor_32/NN_storage_5_24er/cnn_lstm.py',
+    #     'horizon': 32,
+    #     'seq_len': 192,
+    #     'use_temperature': True,
+    #     'color': 'orange'
+    # },
+        'hor_32_E_24_2': {
+        'name': '32-step E 24 2',
+        'path': 'house_E/NN_storage_hor_32/NN_storage_6_24er/NN_weights/best_model.pth',
+        'model_file': 'house_E/NN_storage_hor_32/NN_storage_6_24er/cnn_lstm.py',
+        'horizon': 32,
+        'seq_len': 192,
+        'use_temperature': True,
+        'color': 'red'
     },
         'hor_32_E': {
         'name': '32-step E',
@@ -178,6 +232,24 @@ MODELS = {
         'seq_len': 192,
         'use_temperature': True,
         'color': 'red'
+    },
+    #     'hor_48_E_24_1': {
+    #     'name': '48-step E 24 1',
+    #     'path': 'house_E/NN_storage_hor_48/NN_storage_4_24er/NN_weights/best_model.pth',
+    #     'model_file': 'house_E/NN_storage_hor_48/NN_storage_4_24er/cnn_lstm.py',
+    #     'horizon': 48,
+    #     'seq_len': 192,
+    #     'use_temperature': True,
+    #     'color': 'orange'
+    # },
+        'hor_48_E_24_2': {
+        'name': '48-step E 24 2',
+        'path': 'house_E/NN_storage_hor_48/NN_storage_5_24er/NN_weights/best_model.pth',
+        'model_file': 'house_E/NN_storage_hor_48/NN_storage_5_24er/cnn_lstm.py',
+        'horizon': 48,
+        'seq_len': 192,
+        'use_temperature': True,
+        'color': 'black'
     },
 
 
@@ -447,18 +519,23 @@ def main():
     parser.add_argument('--weather_csv_path', type=str,
                         default='data/data/weather_data_house_a_LUZ.csv',
                         help='Path to weather CSV file (set to "none" to disable)')
-    # parser.add_argument('--models', type=str, nargs='+',
-    #                     default=['hor_16_A_ker5', 'hor_24_A', 'hor_32_A', 'hor_48_A'],
-    #                     choices=['hor_16_A_ker5', 'hor_24_A', 'hor_32_A', 'hor_48_A',],
-    #                     help='Models to compare')
-    # parser.add_argument('--models', type=str, nargs='+',
-    #                 default=['hor_16_E_ker5', 'hor_24_E', 'hor_32_E', 'hor_48_E'],
-    #                 choices=['hor_16_E_ker5', 'hor_24_E', 'hor_32_E', 'hor_48_E'],
-    #                 help='Models to compare')
     parser.add_argument('--models', type=str, nargs='+',
-                    default=['hor_16_A_no_HP_ker5', 'hor_24_A_no_HP', 'hor_32_A_no_HP', 'hor_48_A_no_HP'],
-                    choices=['hor_16_A_no_HP_ker5', 'hor_24_A_no_HP', 'hor_32_A_no_HP', 'hor_48_A_no_HP'],
-                    help='Models to compare')
+                        default=['hor_16_A_ker5', 'hor_24_A', 'hor_32_A_24_3', 'hor_48_A_24_5'],
+                        choices=['hor_16_A_ker5', 'hor_24_A', 'hor_32_A_24_3', 'hor_48_A_24_5'],
+                        help='Models to compare')
+    # parser.add_argument('--models', type=str, nargs='+',
+    #                     default=['hor_32_A', 'hor_32_A_24_1', 'hor_32_A_24_2', 'hor_32_A_24_3'],
+    #                     choices=['hor_32_A', 'hor_32_A_24_1', 'hor_32_A_24_2', 'hor_32_A_24_3'],
+    #                     help='Models to compare')
+    
+    # parser.add_argument('--models', type=str, nargs='+',
+    #                 default=['hor_16_E_ker5', 'hor_24_E', 'hor_32_E_24_2', 'hor_48_E_24_2'],
+    #                 choices=['hor_16_E_ker5', 'hor_24_E', 'hor_32_E_24_2', 'hor_48_E_24_2'],
+    #                 help='Models to compare')
+    # parser.add_argument('--models', type=str, nargs='+',
+    #                 default=['hor_16_A_no_HP_ker5', 'hor_24_A_no_HP', 'hor_32_A_no_HP', 'hor_48_A_no_HP'],
+    #                 choices=['hor_16_A_no_HP_ker5', 'hor_24_A_no_HP', 'hor_32_A_no_HP', 'hor_48_A_no_HP'],
+    #                 help='Models to compare')
     parser.add_argument('--batch_size', type=int, default=64,
                         help='Batch size for evaluation')
     parser.add_argument('--plot_integrated_difference', action='store_true',
