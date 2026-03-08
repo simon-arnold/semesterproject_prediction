@@ -6,10 +6,11 @@ import os
 
 CYAN = '\033[96m'
 GREEN = '\033[92m'
+YELLOW = '\033[93m'
 RESET = '\033[0m'
 
-def load_energy_hdf_to_pandas_2nd_house(h5_file_path, plot_data=True, use_time_axis=True, use_cyclic_encoding=True, 
-                              weather_csv_path=None, print_debug=True):
+def load_energy_hdf_to_pandas_1st_house(h5_file_path, plot_data=True, use_time_axis=True, use_cyclic_encoding=True, 
+                              weather_csv_path=None, print_debug=True, use_HP=True, pv_multiplication_factor=1.0):
     
     try:
         with pd.HDFStore(h5_file_path, mode='r') as store:
@@ -75,15 +76,16 @@ def load_energy_hdf_to_pandas_2nd_house(h5_file_path, plot_data=True, use_time_a
     
     # Here the conversion from the input df to the needed df starts:
     
-    col_electricity = 'E_total_cons_power'
-    col_pv_power = 'E_prod_power'
+    col_electricity = 'A_total_cons_power'
+    col_pv_power = 'A_exp_power'
     
     df_raw_nan_filled = fill_nan_values(df_raw, col_electricity, print_debug=print_debug)
     
     #as we are also exporting pv data for house E, we need to fill NaN values in E_pv_power as well
     df_raw_nan_filled = fill_nan_values(df_raw_nan_filled, col_pv_power, print_debug=print_debug)
     
-    df = convert_df_to_expected_format(df_raw_nan_filled, use_cyclic_encoding=use_cyclic_encoding,weather_csv_path=weather_csv_path, print_debug=print_debug)
+    df = convert_df_to_expected_format(df_raw_nan_filled, use_cyclic_encoding=use_cyclic_encoding,
+                                       weather_csv_path=weather_csv_path, print_debug=print_debug, use_HP=use_HP, pv_multiplication_factor=pv_multiplication_factor)
         
     return df
 
@@ -113,7 +115,7 @@ def fill_nan_values(df, column_name, print_debug=True):
     return df
    
     
-def convert_df_to_expected_format(df, use_cyclic_encoding=True, weather_csv_path=None, print_debug=True):
+def convert_df_to_expected_format(df, use_cyclic_encoding=True, weather_csv_path=None, print_debug=True, use_HP=True, pv_multiplication_factor=1.0):
     """
     Converts the input DataFrame to the expected format for the EnergyDataset house dataset.
     Finally will have the features: Month, Day, Timestep, Weekday, tod_sin/cos, weekday_sin/cos, doy_sin/cos, day_of_year, Year, Load, Temperature
@@ -135,11 +137,15 @@ def convert_df_to_expected_format(df, use_cyclic_encoding=True, weather_csv_path
     
     df.index = pd.to_datetime(df.index)
     
-    load = df['E_total_cons_power']
+    if use_HP:
+        load = df['A_total_cons_power'] - df['A_sauna_power']
+    else:
+        load = df['A_total_cons_power'] - df['A_sauna_power'] - df['A_hp_power']
+     
     load_smooth = load.rolling(window=3, center=True, min_periods=1).mean()
     load_smooth = load_smooth.clip(lower=0.0) 
     
-    pv_forecast = df['E_prod_power']
+    pv_forecast = df['A_exp_power'] * pv_multiplication_factor 
     pv_forecast_smooth = pv_forecast.rolling(window=3, center=True, min_periods=1).mean()
     pv_forecast_smooth = pv_forecast_smooth.clip(lower=0.0)
     
@@ -360,7 +366,7 @@ def plot_total_cons_power(df, use_time_axis=True, print_debug=True):
     Plot a separate figure for the column 'D_total_cons_power' if it exists.
     If no DISPLAY is available, saves the plot to plots/D_total_cons_power.png.
     """
-    col = 'E_total_cons_power'
+    col = 'A_total_cons_power'
     if col not in df.columns:
         if print_debug:
             print("Column '" + col + "' not found in dataframe. Skipping separate plot.")
@@ -396,7 +402,7 @@ def plot_total_cons_power(df, use_time_axis=True, print_debug=True):
 
 
 def save_energy_df_as_mat(h5_file_path, out_path=None, plot_data=False, use_time_axis=True, use_cyclic_encoding=True, 
-                              weather_csv_path=None, print_debug=True):
+                              weather_csv_path=None, print_debug=True, use_HP=True, pv_multiplication_factor=1.0):
     """
     Load dataset via load_energy_hdf_to_pandas_2nd_house and save to a MATLAB .mat file.
     Neuer Parameter:
@@ -409,11 +415,12 @@ def save_energy_df_as_mat(h5_file_path, out_path=None, plot_data=False, use_time
       - col_names    : cell array mit Spaltennamen (Reihenfolge entspricht data)
     """
     
-    df = load_energy_hdf_to_pandas_2nd_house(h5_file_path, plot_data=plot_data,
+    df = load_energy_hdf_to_pandas_1st_house(h5_file_path, plot_data=plot_data,
                                              use_time_axis=use_time_axis,
                                              use_cyclic_encoding=use_cyclic_encoding,
                                              weather_csv_path=weather_csv_path,
-                                             print_debug=print_debug)
+                                             print_debug=print_debug, use_HP=use_HP, 
+                                             pv_multiplication_factor=pv_multiplication_factor)
     if df is None:
         raise RuntimeError("Loaded dataframe is None; cannot save to .mat")
 
@@ -589,17 +596,20 @@ def get_peak_PV_production(df, n_peaks=10):
 def _compute_yearly_consumption(df_indexed):
     """Compute total electricity consumption per year (kWh) for years where
     we have data from beginning to end of the year.
+    
+    If no complete calendar year is available, falls back to computing consumption
+    for a sliding 1-year window starting from the first available timestamp.
 
     Expects a DataFrame with a datetime-like index and a consumption column
-    named 'Load' (Watts) or 'E_total_cons_power' as fallback.
+    named 'Load' (Watts) or 'A_total_cons_power' as fallback.
     """
     # determine consumption column
     if 'Load' in df_indexed.columns:
         cons_col = 'Load'
-    elif 'E_total_cons_power' in df_indexed.columns:
-        cons_col = 'E_total_cons_power'
+    elif 'A_total_cons_power' in df_indexed.columns:
+        cons_col = 'A_total_cons_power'
     else:
-        raise ValueError("No load column found for yearly consumption (expected 'Load' or 'E_total_cons_power').")
+        raise ValueError("No load column found for yearly consumption (expected 'Load' or 'A_total_cons_power').")
 
     idx = pd.to_datetime(df_indexed.index)
     diffs = idx.to_series().diff().dropna()
@@ -610,6 +620,7 @@ def _compute_yearly_consumption(df_indexed):
 
     years = sorted(pd.DatetimeIndex(idx).year.unique())
     results = []
+    
     for year in years:
         year_start = pd.Timestamp(year=year, month=1, day=1)
         year_end = pd.Timestamp(year=year, month=12, day=31, hour=23, minute=59, second=59)
@@ -625,110 +636,79 @@ def _compute_yearly_consumption(df_indexed):
                 # energy in kWh = sum(power_W) * dt_hours / 1000
                 total_kwh = float(subset[cons_col].dropna().sum() * dt_hours / 1000.0)
                 results.append({'year': int(year), 'consumption_kwh': total_kwh})
+    
+    # Fallback: if no complete calendar years were found, try a sliding 1-year window
+    if len(results) == 0:
+        data_start = idx.min()
+        data_end = idx.max()
+        data_span = data_end - data_start
+        
+        # Check if we have at least 1 year of data
+        one_year = pd.Timedelta(days=365)
+        if data_span >= one_year:
+            # Use a 1-year window starting from the first timestamp
+            window_start = data_start
+            window_end = data_start + one_year
+            
+            # Select data in this window
+            mask = (idx >= window_start) & (idx <= window_end)
+            subset = df_indexed.loc[mask]
+            
+            # Check if we have sufficient data (at least 99% of expected samples)
+            expected_samples = int(round((one_year / dominant))) + 1
+            actual_samples = len(subset)
+            
+            if expected_samples > 0 and actual_samples >= 0.99 * expected_samples:
+                total_kwh = float(subset[cons_col].dropna().sum() * dt_hours / 1000.0)
+                
+                # Add result with a warning indicator
+                results.append({
+                    'year': 'sliding_window',
+                    'consumption_kwh': total_kwh,
+                    'window_start': window_start,
+                    'window_end': window_end,
+                    'warning': f'No complete calendar year available. Used sliding 1-year window from {window_start.date()} to {window_end.date()}.'
+                })
+                
+                # Print warning to console
+                print(YELLOW + "WARNING: No complete calendar year found in dataset." + RESET)
+                print(f"         Using sliding 1-year window: {window_start.date()} to {window_end.date()}")
+                print(f"         Estimated annual consumption: {total_kwh:.1f} kWh\n")
+    
     return results
 
-
-def plot_all_columns(h5_file_path, use_time_axis=True):
-    """
-    Loads HDF5 file and plots all raw columns (without preprocessing) in separate subplots.
-    
-    Args:
-        h5_file_path: Path to HDF5 file
-        use_time_axis: if True, xlabel is 'Time' and index will be used as datetime axis if possible
-    """
-    print(CYAN + "Loading raw data from HDF5 file..." + RESET)
-    
-    # Load raw data from HDF5
-    try:
-        df = pd.read_hdf(h5_file_path, key='data')
-    except (KeyError, ValueError):
-        # Fallback: use first key
-        with pd.HDFStore(h5_file_path, mode='r') as store:
-            store_keys = store.keys()
-            if len(store_keys) == 0:
-                raise RuntimeError("No keys found in HDF5 file: " + h5_file_path)
-            first_key = store_keys[0]
-            print("Key 'data' not found, using first key: " + str(first_key))
-            df = pd.read_hdf(h5_file_path, key=first_key)
-    
-    if df is None or df.shape[1] == 0:
-        raise ValueError("DataFrame is empty or None")
-    
-    print(GREEN + f"Loaded {df.shape[0]} rows with {df.shape[1]} columns" + RESET)
-    print(f"Columns: {list(df.columns)}")
-    print(f"Date range: {df.index[0]} to {df.index[-1]}")
-
-    cols = list(df.columns)
-    n = len(cols)
-
-    x = df.index
-    if use_time_axis:
-        try:
-            x = pd.to_datetime(df.index)
-        except Exception:
-            x = df.index
-
-    fig, axes = plt.subplots(nrows=n, ncols=1, figsize=(20, 3 * n), sharex=True)
-    if n == 1:
-        axes = [axes]
-
-    for ax, col in zip(axes, cols):
-        y = df[col].values
-        ax.plot(x, y, linewidth=0.8, alpha=0.9, color='tab:blue')
-        ax.set_ylabel(col, fontsize=11)
-        ax.grid(True, alpha=0.3)
-        
-        # Add statistics
-        try:
-            mean_val = np.nanmean(y)
-            std_val = np.nanstd(y)
-            min_val = np.nanmin(y)
-            max_val = np.nanmax(y)
-            nan_count = int(np.sum(np.isnan(y)))
-            
-            stats = f"μ={mean_val:.2f}, σ={std_val:.2f}, min={min_val:.2f}, max={max_val:.2f}, NaN={nan_count}"
-            ax.text(0.98, 0.92, stats, transform=ax.transAxes, fontsize=9,
-                    verticalalignment='top', horizontalalignment='right',
-                    bbox=dict(boxstyle='round', facecolor='wheat', alpha=0.7))
-        except Exception:
-            pass
-
-    # x-label nur unten
-    xlabel = "Time" if use_time_axis else "Index"
-    axes[-1].set_xlabel(xlabel, fontsize=11)
-    
-    fig.suptitle(f"All Raw Data Columns from {h5_file_path}", fontsize=14, fontweight='bold', y=0.995)
-
-    plt.tight_layout()
-    plt.show()
-
-
 if __name__ == "__main__":
-    h5_file_path = "data/data/dfE_300s.hdf"
+    h5_file_path = "data/data/dfA_300s.hdf"
     weather_csv_path = "data/data/weather_data_house_a_LUZ.csv"
-    store_mat_path = "data/data/matlab/dfE_300s.mat"
     
-    # df = load_energy_hdf_to_pandas_2nd_house(h5_file_path, plot_data=False, use_time_axis=True, 
-    #                                         use_cyclic_encoding=True, weather_csv_path=weather_csv_path,
-    #                                         print_debug=True)
-    # save_energy_df_as_mat(h5_file_path, out_path=store_mat_path, plot_data=False, use_time_axis=True, 
-    #                       use_cyclic_encoding=True, weather_csv_path=weather_csv_path,
-    #                       print_debug=True)
+    use_HP = False
     
-    # peaks, yearly = get_peak_PV_production(df, 60)
-    # if not peaks:
-    #     print("No PV peaks found.")
-    # else:
-    #     print("Top PV peaks:")
-    #     for i, p in enumerate(peaks, start=1):
-    #         print(f"{i:2d}. {p['date']} — {p['value_kw']:.2f} kW (raw {p['value_w']:.0f} W)  plot: {p['plot']}")
+    if use_HP:
+        store_mat_path = "data/data/matlab/dfA_300s_with_HP.mat"
+    else:
+        store_mat_path = "data/data/matlab/dfA_300s_without_HP.mat"
+        
+    pv_multiplication_factor = 2.0
+    
+    df = load_energy_hdf_to_pandas_1st_house(h5_file_path, plot_data=False, use_time_axis=True, 
+                                            use_cyclic_encoding=True, weather_csv_path=weather_csv_path,
+                                            print_debug=True, use_HP=use_HP, pv_multiplication_factor=pv_multiplication_factor)
+    save_energy_df_as_mat(h5_file_path, out_path=store_mat_path, plot_data=False, use_time_axis=True, 
+                          use_cyclic_encoding=True, weather_csv_path=weather_csv_path,
+                          print_debug=True, use_HP=use_HP, pv_multiplication_factor=pv_multiplication_factor)
+    
+    peaks, yearly = get_peak_PV_production(df, 60)
+    if not peaks:
+        print("No PV peaks found.")
+    else:
+        print("Top PV peaks:")
+        for i, p in enumerate(peaks, start=1):
+            print(f"{i:2d}. {p['date']} — {p['value_kw']:.2f} kW (raw {p['value_w']:.0f} W)  plot: {p['plot']}")
 
-    # if yearly:
-    #     print("\nYearly consumption for full years (kWh):")
-    #     for y in yearly:
-    #         print(f"{y['year']}: {y['consumption_kwh']:.1f} kWh")
-    
-    plot_all_columns(h5_file_path, use_time_axis=True)
+    if yearly:
+        print("\nYearly consumption for full years (kWh):")
+        for y in yearly:
+            print(f"{y['year']}: {y['consumption_kwh']:.1f} kWh")
 
     # Note: `plot_top_pv_events` is not defined in this module; if you want to
     # run additional event plotting, import or implement that function and

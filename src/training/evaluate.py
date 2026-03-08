@@ -5,6 +5,7 @@ import pandas as pd
 from data_processing.EnergyDataset import EnergyDataset
 from sklearn.preprocessing import MinMaxScaler
 import time
+import matplotlib.dates as mdates
 
 RED = '\033[91m'
 GREEN = '\033[92m'
@@ -289,19 +290,41 @@ def plot_multiple_predictions_at_date(model, test_set: EnergyDataset, start_date
         input_times = pd.date_range(start=input_start_date, end=input_end_date, periods=len(input_load))
         target_times = pd.date_range(start=pred_start_time+pd.Timedelta(minutes=15), periods=len(target_load), freq='15min')
         
-        plt.plot(input_times, input_load, 'b-', label='Input Sequence (Historical)', linewidth=1.5, alpha=0.8)
-        plt.plot(target_times, target_load, 'g-o', label='Ground Truth', linewidth=2, markersize=4)
-        plt.plot(target_times, pred_denormalized, 'r--x', label='Prediction', linewidth=2, markersize=5)
-        plt.axvline(x=pred_start_time+pd.Timedelta(minutes=15), color='gray', linestyle=':', linewidth=2, alpha=0.5, label='Prediction Start')
+        plt.plot(input_times, input_load, 'b-', label='Load Input Sequence', linewidth=1.5, alpha=0.8)
+        plt.plot(target_times, target_load, 'g-o', label='Ground Truth Load', linewidth=2, markersize=4)
+        plt.plot(target_times, pred_denormalized, 'r-o', label='Load Prediction', linewidth=2, markersize=4)
         
-        plt.xlabel('Time', fontsize=12)
-        plt.ylabel('Load [W]', fontsize=12)
+        line = plt.axvline(x=pred_start_time+pd.Timedelta(minutes=15),
+                           color='gray', linewidth=2, alpha=0.7, label='Prediction Start')
+        line.set_dashes((5, 4))  # (Strichlänge, Lückenlänge) in points — Werte anpassen
+        
+        plt.xlabel('Time', fontsize=14)
+        plt.ylabel('Electrical Load [W]', fontsize=14)
         
         pred_start_time_pd = pd.Timestamp(pred_start_time+pd.Timedelta(minutes=15))
-        plt.title(f'Prediction {i+1}/{n_examples} - Starting at {pred_start_time_pd.strftime("%Y-%m-%d %H:%M")}', 
-                  fontsize=14, fontweight='bold')
-        plt.legend(fontsize=11, loc='best')
+        plt.title(f'Load Prediction Sequence', 
+                  fontsize=15, fontweight='bold')
+        plt.legend(fontsize=14, loc='upper left')
+        
+        # Format x-axis as "April 15, 12:00"
+        ax = plt.gca()
+        ax.xaxis.set_major_locator(mdates.AutoDateLocator())
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%d.%m. %H:%M'))
+        ax.tick_params(axis='x', labelsize=12)
+        ax.tick_params(axis='y', labelsize=12)
+        #plt.xticks(rotation=30, ha='center')
+        
+        
         plt.grid(True, alpha=0.3)
+        
+        plt.tight_layout()
+        # Save plot with datetime in filename (e.g. prediction_plot_2019-06-04_05-00.png)
+        try:
+            timestamp_str = pred_start_time_pd.strftime('%Y-%m-%d_%H-%M')
+        except Exception:
+            timestamp_str = time.strftime('%Y-%m-%d_%H-%M-%S')
+        out_fname = f'prediction_plot_{timestamp_str}.png'
+        plt.savefig(out_fname, dpi=300, bbox_inches='tight')
         
         if plot_metrics:
             # Calculate error
@@ -324,7 +347,9 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
                                    seq_len=192, scaler=None, plot_metrics=False, 
                                    plot_prediction_window_indication=True,
                                    plot_integral_difference=False,
-                                   integral_reset_timesteps=None):
+                                   integral_reset_timesteps=None,
+                                   start_date=None,
+                                   end_date=None):
     """
     Plottet Test-Predictions OHNE Überlappungen.
     Nimmt nur jeden output_horizon-ten Sample für eine echte kontinuierliche Timeline.
@@ -343,6 +368,8 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
         integral_reset_timesteps: Number of timesteps after which the cumulative integral difference is reset. 
             At each reset, the cumulative sum restarts from the current value at that point, not from the start of the timeline.
             If None, defaults to output_horizon (reset after each forecast horizon). (default: None)
+        start_date: Optional start date (str format 'YYYY-MM-DD' or 'YYYY-MM-DD HH:MM') to filter plot range
+        end_date: Optional end date (str format 'YYYY-MM-DD' or 'YYYY-MM-DD HH:MM') to filter plot range
     """
     model.eval()
     all_preds = []
@@ -470,6 +497,34 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
         # print(f"   Input time range: {input_time_axis[0]} to {input_time_axis[-1]}")
         # print(f"   Prediction time range: {pred_time_axis[0]} to {pred_time_axis[-1]}")
         
+        # Filter by date range if provided
+        if start_date is not None or end_date is not None:
+            # Parse dates
+            if start_date is not None:
+                start_dt = pd.Timestamp(start_date)
+            else:
+                start_dt = input_and_target_axis[0]
+            
+            if end_date is not None:
+                end_dt = pd.Timestamp(end_date)
+            else:
+                end_dt = pred_time_axis[-1]
+            
+            # Filter input_and_target_timeline and pred_timeline by date range
+            # Create masks for filtering
+            input_target_mask = (input_and_target_axis >= start_dt) & (input_and_target_axis <= end_dt)
+            pred_mask = (pred_time_axis >= start_dt) & (pred_time_axis <= end_dt)
+            
+            # Apply masks
+            input_and_target_axis = input_and_target_axis[input_target_mask]
+            input_and_target_timeline = input_and_target_timeline[input_target_mask]
+            pred_time_axis = pred_time_axis[pred_mask]
+            pred_timeline = pred_timeline[pred_mask]
+            target_timeline = target_timeline[pred_mask]
+            
+            print(f"{CYAN}Filtered to date range: {start_dt} to {end_dt}{RESET}")
+            print(f"   Filtered timesteps: {len(pred_timeline)} prediction timesteps")
+        
     else:
         input_and_target_axis = np.arange(len(input_and_target_timeline))
         pred_time_axis = np.arange(len(input_and_target_axis) - len(pred_timeline), len(input_and_target_timeline))
@@ -485,43 +540,46 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
 
 
     if use_time_axis:
-        ax.plot(input_and_target_axis, input_and_target_timeline, 'b-', label='Ground Truth', alpha=0.8, linewidth=1.2)
-        ax.plot(pred_time_axis, pred_timeline, 'r-', label='Predictions', alpha=0.8, linewidth=1.2)  
-        ax.set_xlabel("Time", fontsize=12)
+        ax.plot(input_and_target_axis, input_and_target_timeline, 'b-', label='Ground Truth Load', alpha=0.8, linewidth=1.8)
+        ax.plot(pred_time_axis, pred_timeline, 'r-', label='Load Prediction(new Pred. all 12h)', alpha=0.8, linewidth=1.8)  
+        ax.set_xlabel("Time", fontsize=13)
         
-        # Rotate x-axis labels for better readability
-        plt.xticks(rotation=45, ha='right')
+        # Format x-axis with date formatter
+        ax.xaxis.set_major_locator(mdates.AutoDateLocator())
+        ax.xaxis.set_major_formatter(mdates.DateFormatter('%d.%m. %H:%M'))
+        ax.tick_params(axis='x', labelsize=11)
+        #plt.xticks(rotation=45, ha='right')
     else:
-        ax.plot(input_and_target_axis, input_and_target_timeline, 'b-', label='Ground Truth', alpha=0.8, linewidth=1.2)
-        ax.plot(pred_time_axis, pred_timeline, 'r-', label='Predictions', alpha=0.8, linewidth=1.2)
-        ax.set_xlabel("Timestep (kontinuierliche Timeline - OHNE Überlappungen)", fontsize=12)
+        ax.plot(input_and_target_axis, input_and_target_timeline, 'g-', label='Ground Truth Load', alpha=0.8, linewidth=1.8)
+        ax.plot(pred_time_axis, pred_timeline, 'r-', label='Load Prediction (New Pred. all 12h)', alpha=0.8, linewidth=1.8)
+        ax.set_xlabel("Timestep (kontinuierliche Timeline - OHNE Überlappungen)", fontsize=13)
         
         
     
     # Y-axis label depends on whether data is normalized
-    ylabel = "Load [W]" if scaler is not None else "Normalized Load"
-    ax.set_ylabel(ylabel, fontsize=12)
-    ax.set_title(f"Full Test Set: Input + Non-Overlapping Predictions ({len(selected_preds)} samples, {len(input_timeline)} input + {len(pred_timeline)} prediction steps)", 
+    ylabel = "Electrical Load [W]" if scaler is not None else "Normalized Load"
+    ax.set_ylabel(ylabel, fontsize=13)
+    ax.set_title(f"Load Prediction Sequences over 10 Days", 
               fontsize=14, fontweight='bold')
-    ax.legend(fontsize=11, loc='best')
+    ax.legend(fontsize=13, loc='upper right')
     ax.grid(True, alpha=0.3)
     
-    
-    if plot_prediction_window_indication:
-        # Add vertical lines to separate prediction windows
-        # Each window starts at seq_len + i * output_horizon
-        for i in range(len(selected_preds)):
-            if use_time_axis:
-                # Use actual timestamps
-                window_start_idx = seq_len + i * output_horizon
-                if window_start_idx < len(input_and_target_axis):
-                    ax.axvline(x=input_and_target_axis[window_start_idx], 
-                            color='gray', linestyle='--', linewidth=0.8, alpha=0.4)
-            else:
-                # Use timestep indices
-                window_start_idx = seq_len + i * output_horizon
-                ax.axvline(x=window_start_idx, 
-                        color='gray', linestyle='--', linewidth=0.8, alpha=0.4)
+    # Vertical prediction window lines disabled
+    # if plot_prediction_window_indication:
+    #     # Add vertical lines to separate prediction windows
+    #     # Each window starts at seq_len + i * output_horizon
+    #     for i in range(len(selected_preds)):
+    #         if use_time_axis:
+    #             # Use actual timestamps
+    #             window_start_idx = seq_len + i * output_horizon
+    #             if window_start_idx < len(input_and_target_axis):
+    #                 ax.axvline(x=input_and_target_axis[window_start_idx], 
+    #                         color='gray', linestyle='--', linewidth=0.8, alpha=0.4)
+    #         else:
+    #             # Use timestep indices
+    #             window_start_idx = seq_len + i * output_horizon
+    #             ax.axvline(x=window_start_idx, 
+    #                     color='gray', linestyle='--', linewidth=0.8, alpha=0.4)
     
     if plot_metrics:
         mse = np.mean((pred_timeline - target_timeline) ** 2)
@@ -567,7 +625,11 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
         if use_time_axis:
             ax_int.plot(pred_time_axis, integral_diff, 'purple', label='Cumulative Integral Difference', 
                        alpha=0.8, linewidth=1.5)
-            ax_int.set_xlabel("Time", fontsize=12)
+            ax_int.set_xlabel("Time", fontsize=13)
+            # Format x-axis with date formatter
+            ax_int.xaxis.set_major_locator(mdates.AutoDateLocator())
+            ax_int.xaxis.set_major_formatter(mdates.DateFormatter('%d.%m. %H:%M'))
+            ax_int.tick_params(axis='x', labelsize=11)
         else:
             ax_int.plot(pred_time_axis, integral_diff, 'purple', label='Cumulative Integral Difference', 
                        alpha=0.8, linewidth=1.5)
@@ -595,7 +657,7 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
             reset_info = f"(Reset every {integral_reset_timesteps} timesteps = {integral_reset_timesteps/4:.1f} hours)"
         ax_int.set_title(f"Cumulative Integral Difference: ∫(Prediction - Ground Truth) {reset_info}", 
                         fontsize=14, fontweight='bold')
-        ax_int.legend(fontsize=11, loc='best')
+        ax_int.legend(fontsize=13, loc='upper right')
         ax_int.grid(True, alpha=0.3)
         
         # Calculate average integral difference at the end of each prediction horizon
@@ -620,13 +682,26 @@ def plot_full_test_set_predictions(model, test_loader, device="cpu", output_hori
     # Show the combined figure (either single plot or both plots)
     plt.tight_layout()
     
-    # Rotate x-axis labels for better readability (only if time axis and not already rotated)
-    if use_time_axis:
-        plt.setp(fig.axes[-1].xaxis.get_majorticklabels(), rotation=45, ha='right')
+    # X-axis labels without rotation
+    # if use_time_axis:
+    #     plt.setp(fig.axes[-1].xaxis.get_majorticklabels(), rotation=45, ha='right')
+    
+    # Save plot with datetime in filename
+    if use_time_axis and len(pred_time_axis) > 0:
+        try:
+            first_pred_time = pd.Timestamp(pred_time_axis[0])
+            timestamp_str = first_pred_time.strftime('%Y-%m-%d_%H-%M')
+        except Exception:
+            timestamp_str = time.strftime('%Y-%m-%d_%H-%M-%S')
+    else:
+        timestamp_str = time.strftime('%Y-%m-%d_%H-%M-%S')
+    
+    out_fname = f'full_test_set_plot_{timestamp_str}.png'
+    plt.savefig(out_fname, dpi=300, bbox_inches='tight')
     
     plt.show(block=False)
     plt.pause(0.1)
     
-    print(f"{GREEN}Full test set plot generated!{RESET}")
+    print(f"{GREEN}Full test set plot generated and saved to {out_fname}!{RESET}")
 
     return selected_preds, selected_targets

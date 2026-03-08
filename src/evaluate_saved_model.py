@@ -34,7 +34,7 @@ RESET = '\033[0m'
 # Set this to match the encoding used when training the model!
 USE_CYCLIC_ENCODING = True  # True: 8 features (cyclic), False: 6 features (raw)
 
-USE_HOUSE = 'A'  # Options: 'A' or 'E' (2nd house)
+USE_HOUSE = 'E'  # Options: 'A' or 'E' (2nd house)
 
 
 def load_test_data(data_path="data/data/dfA_300s.hdf", weather_csv_path="data/data/weather_data_house_a_LUZ.csv", seq_len=192, output_horizon=16):
@@ -184,6 +184,8 @@ def main():
                         help='Plot entire test set in one continuous timeline')
     parser.add_argument('--plot_full_train', action='store_true',
                         help='Plot entire training set in one continuous timeline')
+    parser.add_argument('--plot_full_val', action='store_true',
+                        help='Plot entire validation set in one continuous timeline')
     parser.add_argument('--skip_examples', action='store_true',
                         help='Skip individual example plots (useful with --plot_full)')
     parser.add_argument('--plot_train_val_test', action='store_true',
@@ -223,6 +225,9 @@ def main():
         args.seq_len,
         args.output_horizon
     )
+    
+    # Create validation dataset for plotting if needed
+    val_set = EnergyDataset(df_val, args.seq_len, args.output_horizon, normalize=True, scaler=train_set.scaler, use_cyclic_encoding=USE_CYCLIC_ENCODING)
     
     if not os.path.exists(args.model_path):
         print(f"{RED}Error: Model not found at {args.model_path}{RESET}")
@@ -279,7 +284,29 @@ def main():
             seq_len=args.seq_len,
             scaler=train_set.scaler, 
             plot_integral_difference=args.plot_integrated_difference, 
-            integral_reset_timesteps=integral_reset_timesteps
+            integral_reset_timesteps=integral_reset_timesteps            
+        )
+    
+    # Plot predictions over full validation set
+    if args.plot_full_val:
+        print(f"{CYAN}Plotting predictions over full validation set...{RESET}")
+        val_loader = DataLoader(val_set, batch_size=args.batch_size)
+        
+        # Calculate integral_reset_interval from timesteps
+        if args.integral_reset_timesteps is not None:
+            integral_reset_timesteps = args.integral_reset_timesteps
+        else:
+            # Default: reset after each forecast horizon
+            integral_reset_timesteps = args.output_horizon
+        
+        all_preds_val, all_targets_val = plot_full_test_set_predictions(
+            model, val_loader, device, 
+            output_horizon=args.output_horizon,
+            df_test=df_val,  # Use validation dataframe
+            seq_len=args.seq_len,
+            scaler=train_set.scaler, 
+            plot_integral_difference=args.plot_integrated_difference, 
+            integral_reset_timesteps=integral_reset_timesteps            
         )
     
     # Plot predictions over full test set - get an overview of predictions
@@ -299,7 +326,9 @@ def main():
             seq_len=args.seq_len,
             scaler=train_set.scaler, 
             plot_integral_difference=args.plot_integrated_difference, 
-            integral_reset_timesteps=integral_reset_timesteps
+            integral_reset_timesteps=integral_reset_timesteps, 
+            start_date='2019-05-31', 
+            end_date='2019-06-10'
         )
         
         

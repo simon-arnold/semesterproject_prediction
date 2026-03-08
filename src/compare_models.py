@@ -15,6 +15,8 @@ import torch
 import argparse
 import numpy as np
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+import time
 from torch.utils.data import DataLoader
 from data_processing.EnergyDataset import EnergyDataset
 from data_processing.data_utils import load_energy_hdf_to_pandas, split_dataframe
@@ -80,24 +82,6 @@ MODELS = {
         'use_temperature': True,
         'color': 'black'
     },
-    # 'hor_32_A_24_1': {
-    #     'name': '32-step A 24 1',
-    #     'path': 'house_A/NN_storage_hor_32/NN_storage_9_24er/NN_weights/best_model.pth',
-    #     'model_file': 'house_A/NN_storage_hor_32/NN_storage_9_24er/cnn_lstm.py',
-    #     'horizon': 32,
-    #     'seq_len': 192,
-    #     'use_temperature': True,
-    #     'color': 'red'
-    # },
-    # 'hor_32_A_24_2': {
-    #     'name': '32-step A 24 2',
-    #     'path': 'house_A/NN_storage_hor_32/NN_storage_10_24er/NN_weights/best_model.pth',
-    #     'model_file': 'house_A/NN_storage_hor_32/NN_storage_10_24er/cnn_lstm.py',
-    #     'horizon': 32,
-    #     'seq_len': 192,
-    #     'use_temperature': True,
-    #     'color': 'orange'
-    # },
     'hor_32_A_24_3': {
         'name': '32-step A 24 3',
         'path': 'house_A/NN_storage_hor_32/NN_storage_11_24er/NN_weights/best_model.pth',
@@ -105,7 +89,7 @@ MODELS = {
         'horizon': 32,
         'seq_len': 192,
         'use_temperature': True,
-        'color': 'purple'
+        'color': 'orange'
     },
     'hor_48_A': {
         'name': '48-step A',
@@ -117,13 +101,13 @@ MODELS = {
         'color': 'red'
     },
     'hor_48_A_24_5': {
-        'name': '48-step A24 5',
+        'name': 'Load Prediction(new Pred. all 12h)',
         'path': 'house_A/NN_storage_hor_48/NN_storage_8_24er/NN_weights/best_model.pth',
         'model_file': 'house_A/NN_storage_hor_48/NN_storage_8_24er/cnn_lstm.py',
         'horizon': 48,
         'seq_len': 192,
         'use_temperature': True,
-        'color': 'purple'
+        'color': 'red'
     },
     'hor_16_A_no_HP': {
         'name': '16-step A (no HP)',
@@ -161,6 +145,15 @@ MODELS = {
         'use_temperature': True,
         'color': 'black'
     },
+    'hor_32_A_no_HP_24_1': {
+        'name': '32-step A (no HP) 24 1',
+        'path': 'house_A_wo_HP/NN_storage_hor_32/NN_storage_3_24er/NN_weights/best_model.pth',
+        'model_file': 'house_A_wo_HP/NN_storage_hor_32/NN_storage_3_24er/cnn_lstm.py',
+        'horizon': 32,
+        'seq_len': 192,
+        'use_temperature': True,
+        'color': 'black'
+    },
     'hor_48_A_no_HP': {
         'name': '48-step A (no HP)',
         'path': 'house_A_wo_HP/NN_storage_hor_48/NN_storage_1/NN_weights/best_model.pth',
@@ -170,6 +163,16 @@ MODELS = {
         'use_temperature': True,
         'color': 'red'
     },
+    'hor_48_A_no_HP_24_2': {
+        'name': 'Load Prediction(new Pred. all 12h)',
+        'path': 'house_A_wo_HP/NN_storage_hor_48/NN_storage_4_24er/NN_weights/best_model.pth',
+        'model_file': 'house_A_wo_HP/NN_storage_hor_48/NN_storage_4_24er/cnn_lstm.py',
+        'horizon': 48,
+        'seq_len': 192,
+        'use_temperature': True,
+        'color': 'red'
+    },
+   
     'hor_16_E': {
         'name': '16-step E',
         'path': 'house_E/NN_storage_hor_16/NN_storage_1/NN_weights/cnn_lstm_forecaster.pth',
@@ -180,7 +183,7 @@ MODELS = {
         'color': 'orange'
     },
     'hor_16_E_ker5': {
-        'name': '16-step E',
+        'name': 'Load Prediction(new Pred. all 4h)',
         'path': 'house_E/NN_storage_hor_16/NN_storage_4_ker5/NN_weights/cnn_lstm_forecaster.pth',
         'model_file': 'house_E/NN_storage_hor_16/NN_storage_4_ker5/cnn_lstm.py',
         'horizon': 16,
@@ -189,7 +192,7 @@ MODELS = {
         'color': 'orange'
     },
     'hor_24_E': {
-        'name': '24-step E',
+        'name': 'Load Prediction(new Pred. all 6h)',
         'path': 'house_E/NN_storage_hor_24/NN_storage_1/NN_weights/best_model.pth',
         'model_file': 'house_E/NN_storage_hor_24/NN_storage_1/cnn_lstm.py',
         'horizon': 24,
@@ -197,26 +200,17 @@ MODELS = {
         'use_temperature': True,
         'color': 'green'
     },
-    #     'hor_32_E_24_1': {
-    #     'name': '32-step E 24 1',
-    #     'path': 'house_E/NN_storage_hor_32/NN_storage_5_24er/NN_weights/best_model.pth',
-    #     'model_file': 'house_E/NN_storage_hor_32/NN_storage_5_24er/cnn_lstm.py',
-    #     'horizon': 32,
-    #     'seq_len': 192,
-    #     'use_temperature': True,
-    #     'color': 'orange'
-    # },
         'hor_32_E_24_2': {
-        'name': '32-step E 24 2',
+        'name': 'Load Prediction(new Pred. all 8h)',
         'path': 'house_E/NN_storage_hor_32/NN_storage_6_24er/NN_weights/best_model.pth',
         'model_file': 'house_E/NN_storage_hor_32/NN_storage_6_24er/cnn_lstm.py',
         'horizon': 32,
         'seq_len': 192,
         'use_temperature': True,
-        'color': 'red'
+        'color': 'black'
     },
         'hor_32_E': {
-        'name': '32-step E',
+        'name': 'Load Prediction(new Pred. all 8h)',
         'path': 'house_E/NN_storage_hor_32/NN_storage_3/NN_weights/best_model.pth',
         'model_file': 'house_E/NN_storage_hor_32/NN_storage_3/cnn_lstm.py',
         'horizon': 32,
@@ -225,7 +219,7 @@ MODELS = {
         'color': 'black'
     },
         'hor_48_E': {
-        'name': '48-step E',
+        'name': 'Load Prediction(new Pred. all 12h)',
         'path': 'house_E/NN_storage_hor_48/NN_storage_3/NN_weights/best_model.pth',
         'model_file': 'house_E/NN_storage_hor_48/NN_storage_3/cnn_lstm.py',
         'horizon': 48,
@@ -233,23 +227,14 @@ MODELS = {
         'use_temperature': True,
         'color': 'red'
     },
-    #     'hor_48_E_24_1': {
-    #     'name': '48-step E 24 1',
-    #     'path': 'house_E/NN_storage_hor_48/NN_storage_4_24er/NN_weights/best_model.pth',
-    #     'model_file': 'house_E/NN_storage_hor_48/NN_storage_4_24er/cnn_lstm.py',
-    #     'horizon': 48,
-    #     'seq_len': 192,
-    #     'use_temperature': True,
-    #     'color': 'orange'
-    # },
         'hor_48_E_24_2': {
-        'name': '48-step E 24 2',
+        'name': 'Load Prediction(new Pred. all 12h)',
         'path': 'house_E/NN_storage_hor_48/NN_storage_5_24er/NN_weights/best_model.pth',
         'model_file': 'house_E/NN_storage_hor_48/NN_storage_5_24er/cnn_lstm.py',
         'horizon': 48,
         'seq_len': 192,
         'use_temperature': True,
-        'color': 'black'
+        'color': 'red'
     },
 
 
@@ -315,7 +300,7 @@ def load_model(model_config, input_dim, device='cpu', print_debug=True):
     return model
 
 
-def generate_continuous_predictions(model, dataloader, device, output_horizon, seq_len, scaler):
+def generate_continuous_predictions(model, dataloader, device, output_horizon, seq_len, scaler, df_test=None, start_date=None, end_date=None):
     """
     Generate continuous predictions by sampling every output_horizon-th sample.
     This creates a non-overlapping timeline similar to plot_full_test_set_predictions.
@@ -327,6 +312,9 @@ def generate_continuous_predictions(model, dataloader, device, output_horizon, s
         output_horizon: Forecast horizon
         seq_len: Sequence length
         scaler: Scaler for denormalization
+        df_test: Test dataframe with timestamps (optional, needed for date filtering)
+        start_date: Optional start date (str format 'YYYY-MM-DD' or 'YYYY-MM-DD HH:MM') to filter predictions
+        end_date: Optional end date (str format 'YYYY-MM-DD' or 'YYYY-MM-DD HH:MM') to filter predictions
         
     Returns:
         pred_timeline: Continuous prediction timeline
@@ -349,9 +337,84 @@ def generate_continuous_predictions(model, dataloader, device, output_horizon, s
     all_preds = np.concatenate(all_preds, axis=0)
     all_targets = np.concatenate(all_targets, axis=0)
     all_inputs = np.concatenate(all_inputs, axis=0)
+
+    # --- Compute errors over ALL (overlapping) predictions ---
+    # Flatten all predictions/targets (all sliding-window predictions)
+    all_preds_flat = all_preds.flatten()
+    all_targets_flat = all_targets.flatten()
+
+    # Denormalize if scaler provided (Load is last feature)
+    if scaler is not None:
+        n_features = scaler.data_min_.shape[0]
+
+        pred_dummy = np.zeros((len(all_preds_flat), n_features))
+        targ_dummy = np.zeros((len(all_targets_flat), n_features))
+        pred_dummy[:, -1] = all_preds_flat
+        targ_dummy[:, -1] = all_targets_flat
+
+        all_preds_flat_den = scaler.inverse_transform(pred_dummy)[:, -1]
+        all_targets_flat_den = scaler.inverse_transform(targ_dummy)[:, -1]
+    else:
+        all_preds_flat_den = all_preds_flat
+        all_targets_flat_den = all_targets_flat
+
+    # Safe MAPE calculation
+    eps = 1e-8
+    mse_all = np.mean((all_preds_flat_den - all_targets_flat_den) ** 2)
+    mae_all = np.mean(np.abs(all_preds_flat_den - all_targets_flat_den))
+    rmse_all = np.sqrt(mse_all)
+    mape_all = np.mean(np.abs((all_targets_flat_den - all_preds_flat_den) / (all_targets_flat_den + eps))) * 100
+
+    all_metrics = {
+        'MSE_all': mse_all,
+        'MAE_all': mae_all,
+        'RMSE_all': rmse_all,
+        'MAPE_all': mape_all
+    }
     
     # Sample every output_horizon-th prediction to avoid overlaps
-    selected_indices = np.arange(0, len(all_preds), output_horizon)
+    # If start_date is provided, find the starting index
+    start_idx = 0
+    end_idx = len(all_preds)
+    
+    if df_test is not None and start_date is not None:
+        import pandas as pd
+        
+        # Get timestamps for all predictions
+        timestamps = df_test.index[:]
+        start_dt = pd.Timestamp(start_date)
+        
+        # Find first prediction that starts at or after start_date
+        # Each prediction i corresponds to timestamps [seq_len + i : seq_len + i + output_horizon]
+        for i in range(0, len(all_preds)):
+            pred_start_time_idx = seq_len + i
+            if pred_start_time_idx < len(timestamps):
+                pred_start_time = timestamps[pred_start_time_idx]
+                if pred_start_time >= start_dt:
+                    start_idx = i
+                    print(CYAN + f"   Starting predictions at index {start_idx}, time {pred_start_time}" + RESET)
+                    break
+    
+    if df_test is not None and end_date is not None:
+        import pandas as pd
+        
+        # Get timestamps for all predictions
+        timestamps = df_test.index[:]
+        end_dt = pd.Timestamp(end_date)
+        
+        # Find last prediction that ends at or before end_date
+        for i in range(start_idx, len(all_preds), output_horizon):
+            pred_end_time_idx = seq_len + i + output_horizon - 1
+            if pred_end_time_idx < len(timestamps):
+                pred_end_time = timestamps[pred_end_time_idx]
+                if pred_end_time <= end_dt:
+                    end_idx = i + output_horizon
+                else:
+                    break
+        
+        print(CYAN + f"   Ending predictions at index {end_idx}" + RESET)
+    
+    selected_indices = np.arange(start_idx, end_idx, output_horizon)
     
     selected_preds = all_preds[selected_indices]
     selected_targets = all_targets[selected_indices]
@@ -398,7 +461,11 @@ def generate_continuous_predictions(model, dataloader, device, output_horizon, s
     
     pred_time_indices = pred_time_indices[:len(pred_timeline)]
     
-    return pred_timeline, target_timeline, pred_time_indices, len(selected_preds)
+    if df_test is not None and (start_date is not None or end_date is not None):
+        print(CYAN + f"   Generated predictions from {df_test.index[pred_time_indices[0]]} to {df_test.index[pred_time_indices[-1]]}" + RESET)
+        print(f"   Total timesteps: {len(pred_timeline)} prediction timesteps")
+    
+    return pred_timeline, target_timeline, pred_time_indices, len(selected_preds), all_metrics
 
 
 def plot_model_comparison(models_data, df_test, plot_integral_difference=False):
@@ -426,7 +493,7 @@ def plot_model_comparison(models_data, df_test, plot_integral_difference=False):
         fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(24, 14), 
                                         gridspec_kw={'height_ratios': [3, 1]}, sharex=True)
     else:
-        fig, ax1 = plt.subplots(1, 1, figsize=(24, 10))
+        fig, ax1 = plt.subplots(1, 1, figsize=(20, 6))
     
     # Get timestamps for x-axis
     timestamps = df_test.index[:]
@@ -434,7 +501,7 @@ def plot_model_comparison(models_data, df_test, plot_integral_difference=False):
     # Plot ground truth (only once, using the first model's targets)
     ground_truth_plotted = False
     
-    for model_name, (pred_timeline, target_timeline, pred_time_indices, config, n_samples) in models_data.items():
+    for model_name, (pred_timeline, target_timeline, pred_time_indices, config, n_samples, all_metrics) in models_data.items():
         color = config['color']
         label = config['name']
         horizon = config['horizon']
@@ -445,14 +512,14 @@ def plot_model_comparison(models_data, df_test, plot_integral_difference=False):
         # Plot ground truth only once (use first model's target timeline)
         if not ground_truth_plotted:
             ax1.plot(pred_timestamps, target_timeline, 
-                    color='blue', linewidth=1.2, alpha=0.7, 
+                    color='blue', linewidth=1.8, alpha=0.8, 
                     label='Ground Truth', zorder=1)
             ground_truth_plotted = True
         
         # Plot predictions for this model
         ax1.plot(pred_timestamps, pred_timeline, 
-                color=color, linewidth=1.2, alpha=0.8, 
-                label=f'{label} Prediction', zorder=2)
+                color=color, linewidth=1.8, alpha=0.8, 
+                label=label, zorder=2)
         
         # Calculate metrics
         mse = np.mean((pred_timeline - target_timeline) ** 2)
@@ -473,6 +540,12 @@ def plot_model_comparison(models_data, df_test, plot_integral_difference=False):
             + " %, R2 = " + "{:.3f}".format(r2)
             + " (" + str(n_samples) + " samples)"
         )
+        # Print overlapping (ALL) errors if available
+        if all_metrics is not None:
+            try:
+                print(f"   Overlapping (ALL) preds: MSE_all = {all_metrics['MSE_all']:.2f} W², MAE_all = {all_metrics['MAE_all']:.2f} W, RMSE_all = {all_metrics['RMSE_all']:.2f} W, MAPE_all = {all_metrics['MAPE_all']:.2f} %")
+            except Exception:
+                pass
         
         # Plot integral difference if requested
         if plot_integral_difference:
@@ -483,32 +556,49 @@ def plot_model_comparison(models_data, df_test, plot_integral_difference=False):
                     label=f'{label}')
     
     # Configure main plot
-    ax1.set_ylabel('Load [W]', fontsize=12)
-    ax1.set_title('Model Comparison - Non-Overlapping Predictions on Full Test Set', 
-                  fontsize=14, fontweight='bold')
-    ax1.legend(loc='upper right', fontsize=10)
-    ax1.grid(True, alpha=0.3)
+    ax1.set_ylabel('Electrical Load [W]', fontsize=15)
+    ax1.set_title('Load Prediction Sequence over 10 Days - House 2 without the Heat Pump', 
+                  fontsize=16, fontweight='bold')
+    ax1.legend(loc='upper right', fontsize=15)
+    #ax1.grid(True, alpha=0.3)
     
-    # Rotate x-axis labels
-    plt.setp(ax1.xaxis.get_majorticklabels(), rotation=45, ha='right')
+    # Format x-axis with date formatter
+    ax1.xaxis.set_major_locator(mdates.AutoDateLocator())
+    ax1.xaxis.set_major_formatter(mdates.DateFormatter('%d.%m. %H:%M'))
+    ax1.tick_params(axis='x', labelsize=14)
+    ax1.tick_params(axis='y', labelsize=14)
     
     # Configure integral difference plot
     if plot_integral_difference:
-        ax2.set_xlabel('Time', fontsize=12)
-        ax2.set_ylabel('Cumulative Error [W]', fontsize=12)
+        ax2.set_xlabel('Time', fontsize=13)
+        ax2.set_ylabel('Cumulative Error [W]', fontsize=13)
         ax2.set_title('Cumulative Prediction Error', fontsize=12, fontweight='bold')
-        ax2.legend(loc='upper right', fontsize=10)
+        ax2.legend(loc='upper right', fontsize=13)
         ax2.grid(True, alpha=0.3)
         ax2.axhline(y=0, color='black', linestyle='--', linewidth=0.8, alpha=0.5)
-        plt.setp(ax2.xaxis.get_majorticklabels(), rotation=45, ha='right')
+        ax2.xaxis.set_major_locator(mdates.AutoDateLocator())
+        ax2.xaxis.set_major_formatter(mdates.DateFormatter('%d.%m. %H:%M'))
+        ax2.tick_params(axis='x', labelsize=13)
+        ax2.tick_params(axis='y', labelsize=13)
     else:
-        ax1.set_xlabel('Time', fontsize=12)
+        ax1.set_xlabel('Time', fontsize=15)
     
     plt.tight_layout()
+    
+    # Save plot with timestamp
+    try:
+        first_timestamp = timestamps[0]
+        timestamp_str = first_timestamp.strftime('%Y-%m-%d_%H-%M')
+    except Exception:
+        timestamp_str = time.strftime('%Y-%m-%d_%H-%M-%S')
+    
+    out_fname = f'model_comparison_{timestamp_str}.png'
+    plt.savefig(out_fname, dpi=300, bbox_inches='tight')
+    
     plt.show(block=False)
     plt.pause(0.1)
     
-    print(GREEN + "Comparison plot created." + RESET)
+    print(GREEN + f"Comparison plot created and saved to {out_fname}." + RESET)
 
 
 def main():
@@ -519,29 +609,45 @@ def main():
     parser.add_argument('--weather_csv_path', type=str,
                         default='data/data/weather_data_house_a_LUZ.csv',
                         help='Path to weather CSV file (set to "none" to disable)')
-    parser.add_argument('--models', type=str, nargs='+',
-                        default=['hor_16_A_ker5', 'hor_24_A', 'hor_32_A_24_3', 'hor_48_A_24_5'],
-                        choices=['hor_16_A_ker5', 'hor_24_A', 'hor_32_A_24_3', 'hor_48_A_24_5'],
-                        help='Models to compare')
+    #----------------------------------selected models House A----------------------------------
     # parser.add_argument('--models', type=str, nargs='+',
-    #                     default=['hor_32_A', 'hor_32_A_24_1', 'hor_32_A_24_2', 'hor_32_A_24_3'],
-    #                     choices=['hor_32_A', 'hor_32_A_24_1', 'hor_32_A_24_2', 'hor_32_A_24_3'],
+    #                     default=['hor_48_A_24_5'],
+    #                     choices=['hor_48_A_24_5'],
+    #                     help='Models to compare')
+
+
+    #----------------------------------selected models House E----------------------------------
+    # parser.add_argument('--models', type=str, nargs='+',
+    #                     default=['hor_16_E_ker5', 'hor_24_E', 'hor_32_E_24_2', 'hor_48_E_24_2'],
+    #                     choices=['hor_16_E_ker5', 'hor_24_E', 'hor_32_E_24_2', 'hor_48_E_24_2'],
     #                     help='Models to compare')
     
     # parser.add_argument('--models', type=str, nargs='+',
-    #                 default=['hor_16_E_ker5', 'hor_24_E', 'hor_32_E_24_2', 'hor_48_E_24_2'],
-    #                 choices=['hor_16_E_ker5', 'hor_24_E', 'hor_32_E_24_2', 'hor_48_E_24_2'],
-    #                 help='Models to compare')
+    #                     default=['hor_48_E_24_2'],
+    #                     choices=['hor_48_E_24_2'],
+    #                     help='Models to compare')
+    
+    
+    #----------------------------------selected models house A no HP----------------------------------
     # parser.add_argument('--models', type=str, nargs='+',
-    #                 default=['hor_16_A_no_HP_ker5', 'hor_24_A_no_HP', 'hor_32_A_no_HP', 'hor_48_A_no_HP'],
-    #                 choices=['hor_16_A_no_HP_ker5', 'hor_24_A_no_HP', 'hor_32_A_no_HP', 'hor_48_A_no_HP'],
+    #                 default=['hor_16_A_no_HP_ker5', 'hor_24_A_no_HP', 'hor_32_A_no_HP_24_1', 'hor_48_A_no_HP_24_2'],
+    #                 choices=['hor_16_A_no_HP_ker5', 'hor_24_A_no_HP', 'hor_32_A_no_HP_24_1', 'hor_48_A_no_HP_24_2'],
     #                 help='Models to compare')
+    
+    parser.add_argument('--models', type=str, nargs='+',
+                        default=['hor_48_A_no_HP_24_2'],
+                        choices=['hor_48_A_no_HP_24_2'],
+                        help='Models to compare')
     parser.add_argument('--batch_size', type=int, default=64,
                         help='Batch size for evaluation')
     parser.add_argument('--plot_integrated_difference', action='store_true',
                         help='Plot cumulative integral difference')
     parser.add_argument('--use_cyclic_encoding', action='store_true', default=True,
                         help='Use cyclic encoding for temporal features')
+    parser.add_argument('--start_date', type=str, default=None,
+                        help='Start date for predictions (format: YYYY-MM-DD or YYYY-MM-DD HH:MM)')
+    parser.add_argument('--end_date', type=str, default=None,
+                        help='End date for predictions (format: YYYY-MM-DD or YYYY-MM-DD HH:MM)')
     
     args = parser.parse_args()
 
@@ -650,13 +756,17 @@ def main():
         
         # Generate predictions
         print(CYAN + "Generating predictions for " + config['name'] + "..." + RESET)
-        pred_timeline, target_timeline, pred_time_indices, n_samples = generate_continuous_predictions(
+        pred_timeline, target_timeline, pred_time_indices, n_samples, all_metrics = generate_continuous_predictions(
             model, test_loader, device, 
             config['horizon'], config['seq_len'],
-            model_scaler
+            model_scaler, df_test, args.start_date, args.end_date
         )
+
+        # Print errors computed over ALL (overlapping) predictions for this model
+        print(CYAN + "Errors over ALL predictions for " + config['name'] + ":" + RESET)
+        print(f"   MSE_all: {all_metrics['MSE_all']:.3f} W^2 | MAE_all: {all_metrics['MAE_all']:.3f} W | RMSE_all: {all_metrics['RMSE_all']:.3f} W | MAPE_all: {all_metrics['MAPE_all']:.2f}%")
         
-        models_data[model_key] = (pred_timeline, target_timeline, pred_time_indices, config, n_samples)
+        models_data[model_key] = (pred_timeline, target_timeline, pred_time_indices, config, n_samples, all_metrics)
         print(GREEN + "Generated " + str(n_samples) + " non-overlapping predictions (" + str(len(pred_timeline)) + " timesteps)" + RESET + "\n")
     
     if not models_data:
@@ -669,6 +779,21 @@ def main():
         plot_integral_difference=args.plot_integrated_difference
     )
     
+    # Final summary: print only the overlapping (ALL) errors per model
+    print('\n' + BRIGHT_BLUE + 'Final summary (Overlapping / ALL predictions):' + RESET)
+    for model_key, model_vals in models_data.items():
+        # model_vals = (pred_timeline, target_timeline, pred_time_indices, config, n_samples, all_metrics)
+        try:
+            config = model_vals[3]
+            all_metrics = model_vals[5]
+            name = config.get('name', model_key)
+            if all_metrics is not None:
+                print(f"  {name}: MSE_all={all_metrics['MSE_all']:.2f} W^2 | MAE_all={all_metrics['MAE_all']:.2f} W | RMSE_all={all_metrics['RMSE_all']:.2f} W | MAPE_all={all_metrics['MAPE_all']:.2f}%")
+            else:
+                print(f"  {name}: Overlapping metrics not available")
+        except Exception:
+            print(f"  {model_key}: Error reading overlapping metrics")
+
     # Wait for user input
     input("\n" + YELLOW + "Press Enter to exit..." + RESET)
 
