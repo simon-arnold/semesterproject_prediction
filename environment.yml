@@ -6,6 +6,7 @@ channels:
 dependencies:
   - _libgcc_mutex=0.1=main
   - _openmp_mutex=5.1=1_gnu
+  - absl-py=2.1.0=py311h06a4308_0
   - aom=3.6.0=h6a678d5_0
   - blas=1.0=mkl
   - blosc=1.21.6=hf7d4471_0
@@ -43,6 +44,7 @@ dependencies:
   - gmpy2=2.2.1=py311h5eee18b_0
   - gnutls=3.6.15=he1e5248_0
   - graphite2=1.3.14=h295c915_1
+  - grpcio=1.71.0=py311h6a678d5_0
   - h5py=3.14.0=py311he0d80d8_0
   - harfbuzz=10.2.0=hdfddeaa_1
   - hdf5=1.14.5=h2b7332f_2
@@ -57,6 +59,7 @@ dependencies:
   - lcms2=2.16=h92b89f2_1
   - ld_impl_linux-64=2.44=h153f514_2
   - lerc=4.0.0=h6a678d5_0
+  - libabseil=20250127.0=cxx17_h6a678d5_0
   - libavif=1.1.1=h5eee18b_0
   - libcublas=12.4.5.8=0
   - libcufft=11.2.1.3=0
@@ -80,6 +83,7 @@ dependencies:
   - libglvnd=1.7.0=h5eee18b_2
   - libglx=1.7.0=h5eee18b_2
   - libgomp=11.2.0=h1234567_1
+  - libgrpc=1.71.0=h2d74bed_0
   - libiconv=1.16=h5eee18b_3
   - libidn2=2.3.4=h5eee18b_0
   - libjpeg-turbo=2.0.0=h9bf148f_0
@@ -95,6 +99,8 @@ dependencies:
   - libpciaccess=0.18=h5eee18b_0
   - libpng=1.6.39=h5eee18b_0
   - libpq=17.4=h02b6914_2
+  - libprotobuf=5.29.3=h3cdef7c_1
+  - libre2-11=2024.07.02=h6a678d5_0
   - libsodium=1.0.20=heac8642_0
   - libssh2=1.11.1=h251f7ec_0
   - libstdcxx-ng=11.2.0=h1234567_1
@@ -113,6 +119,7 @@ dependencies:
   - lmdb=0.9.31=hb25bd0a_0
   - lz4-c=1.9.4=h6a678d5_1
   - lzo=2.10=h7b6447c_2
+  - markdown=3.8=py311h06a4308_0
   - markupsafe=3.0.2=py311h5eee18b_0
   - matplotlib=3.10.6=py311h06a4308_0
   - matplotlib-base=3.10.6=py311h71dd3da_0
@@ -121,6 +128,7 @@ dependencies:
   - mkl-service=2.4.0=py311h5eee18b_2
   - mkl_fft=1.3.11=py311h5eee18b_0
   - mkl_random=1.2.8=py311ha02d727_0
+  - ml_dtypes=0.5.1=py311hc74f9fe_0
   - mpc=1.3.1=h5eee18b_0
   - mpfr=4.2.1=h5eee18b_0
   - mpi=1.0=mpich
@@ -136,6 +144,7 @@ dependencies:
   - numpy=2.0.1=py311h08b1b3b_1
   - numpy-base=2.0.1=py311hf175353_1
   - ocl-icd=2.3.2=h5eee18b_1
+  - onnx=1.19.1=py311h540e5eb_0
   - openh264=2.1.1=h4ff587b_0
   - openjpeg=2.5.2=h0d4d230_1
   - openldap=2.6.10=he9288cc_1
@@ -146,6 +155,7 @@ dependencies:
   - pillow=11.3.0=py311hb1c3d2d_0
   - pip=25.2=pyhc872135_0
   - pixman=0.46.4=h7934f7d_0
+  - protobuf=5.29.3=py311he621ea3_0
   - pthread-stubs=0.3=h0ce48e5_1
   - py-cpuinfo=9.0.0=py311h06a4308_0
   - pycparser=2.23=py311h06a4308_0
@@ -169,6 +179,7 @@ dependencies:
   - qtwayland=6.9.2=h9f1b7ec_1
   - qtwebchannel=6.9.2=hbdd6827_1
   - qtwebsockets=6.9.2=hbdd6827_1
+  - re2=2024.07.02=hdb19cb5_0
   - readline=8.3=hc2a1206_0
   - requests=2.32.5=py311h06a4308_0
   - scikit-learn=1.7.2=py311h505adc9_0
@@ -178,19 +189,22 @@ dependencies:
   - six=1.17.0=py311h06a4308_0
   - spirv-tools=2025.1=hdb19cb5_0
   - sqlite=3.50.2=hb25bd0a_1
-  - sympy=1.14.0=py311h06a4308_0
   - tbb=2021.8.0=hdb19cb5_0
+  - tensorboard=2.19.0=py311h06a4308_0
+  - tensorboard-data-server=0.7.0=py311h52d8a92_1
   - threadpoolctl=3.5.0=py311h92b7b1e_0
   - tk=8.6.15=h54e0aa7_0
   - torchaudio=2.5.1=py311_cu124
   - torchtriton=3.1.0=py311
   - torchvision=0.20.1=py311_cu124
   - tornado=6.5.1=py311h5eee18b_0
+  - tqdm=4.67.1=py311h92b7b1e_0
   - typing-extensions=4.15.0=py311h06a4308_0
   - typing_extensions=4.15.0=py311h06a4308_0
   - tzdata=2025b=h04d1e81_0
   - urllib3=2.5.0=py311h06a4308_0
   - wayland=1.24.0=hdac8c69_0
+  - werkzeug=3.1.3=py311h06a4308_0
   - wheel=0.45.1=py311h06a4308_0
   - x264=1!157.20191217=h7b6447c_0
   - xcb-util=0.4.1=h5eee18b_2
@@ -220,10 +234,17 @@ dependencies:
   - pip:
       - click==8.3.0
       - coverage==7.10.7
+      - fsspec==2025.9.0
+      - graphviz==0.21
       - humanize==4.13.0
+      - markdown-it-py==4.0.0
+      - mdurl==0.1.2
+      - netron==8.6.8
+      - pygments==2.19.2
+      - rich==14.2.0
+      - sympy==1.13.1
+      - torchinfo==1.8.0
+      - torchviz==0.0.3
       - wget==3.2
       - zenodo-get==2.0.0
 prefix: /home/simon/programs/miniconda3/envs/sp_project
-
-# Added by: conda env export > environment.yml
-# Can later be activated easily with conda env create -f environment.yml
