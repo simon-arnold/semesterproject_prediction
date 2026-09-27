@@ -1,5 +1,9 @@
 # Load Prediction – Semester Project
 
+> **Fair warning:** There is a lot of learning and debugging baked into every corner of this codebase. But with a little patience and curiosity, you will get it running. Good luck and have fun 😉. 
+
+---
+
 This project includes a **complete Conda environment** that installs all required packages for the project (including PyTorch, CUDA, NumPy, Pandas, Matplotlib, Scikit-Learn, etc.).
 
 The environment configuration is stored in the file `environment.yml`.
@@ -50,21 +54,6 @@ The environment configuration is stored in the file `environment.yml`.
 
 This project is part of the semester project **"Optimal Utilization of a Local Battery in a PV Setup – With Focus on Load Prediction and Optimal Control"**.  
 The load forecasting pipeline is built around a **CNN-LSTM neural network** that predicts future household electricity consumption from historical time-series data and weather features.
-
----
-### ⚠️ A warm, heartfelt apology ⚠️
-
-Dear brave soul who just cloned this repository — welcome.
-
-What you are looking at is the proud result of a semester spent simultaneously learning PyTorch, debugging data pipelines at 2 AM, and questioning every life choice that led to this moment😉 . The code works. Mostly. Under the right conditions. With the right environment. 
-
-You will notice things like hardcoded paths scattered across multiple files, configuration variables that live at the very top of each script and absolutely must be set correctly before running anything, model keys that are slightly cryptic (`hor_32_A_no_HP_24_1` — self-explanatory, obviously), and enough commented-out argument parsers to fill a small novel.
-
-This is not *production-grade* code. It is *it-survived-the-semester* code, which is its own remarkable achievement.
-
-Take it one script at a time, read the comments, check the variable names at the top of each file, and you'll get there. Probably. You've got this. 🎉 
-
-PS. Some chatbots are a real lifesaver.
 
 ---
 
